@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gorakhpur 1000 Rs Fun Planner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #eee;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      padding: 30px 10px 10px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #f7971e, #ffd200);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+
+    header p {
+      color: #aaa;
+      font-size: 0.95rem;
+    }
+
+    .budget-bar-wrapper {
+      max-width: 700px;
+      margin: 24px auto 10px;
+      background: #ffffff15;
+      border-radius: 50px;
+      padding: 6px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .budget-bar-wrapper span { font-size: 0.9rem; color: #ffd200; white-space: nowrap; }
+
+    #budget-remaining {
+      flex: 1;
+      font-size: 1.4rem;
+      font-weight: bold;
+      text-align: center;
+      color: #4ecca3;
+    }
+
+    /* Category tabs */
+    .tabs {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px auto;
+      max-width: 800px;
+    }
+
+    .tab-btn {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 30px;
+      background: #ffffff15;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 0.88rem;
+      transition: all 0.25s;
+    }
+
+    .tab-btn.active, .tab-btn:hover {
+      background: linear-gradient(90deg, #f7971e, #ffd200);
+      color: #1a1a2e;
+      font-weight: bold;
+    }
+
+    /* Cards grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 18px;
+      max-width: 1100px;
+      margin: 0 auto 30px;
+    }
+
+    .card {
+      background: #ffffff0d;
+      border: 1px solid #ffffff18;
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px #00000050; }
+
+    .card .emoji { font-size: 2.2rem; }
+
+    .card h3 { font-size: 1.05rem; color: #ffd200; }
+
+    .card p { font-size: 0.85rem; color: #bbb; line-height: 1.5; }
+
+    .card .cost-badge {
+      display: inline-block;
+      background: linear-gradient(90deg, #f7971e44, #ffd20044);
+      border: 1px solid #ffd20066;
+      color: #ffd200;
+      font-weight: bold;
+      font-size: 0.82rem;
+      border-radius: 20px;
+      padding: 3px 12px;
+      width: fit-content;
+    }
+
+    .card .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .card .tag {
+      font-size: 0.72rem;
+      background: #4ecca320;
+      color: #4ecca3;
+      border-radius: 10px;
+      padding: 2px 9px;
+    }
+
+    .card .add-btn {
+      margin-top: auto;
+      padding: 8px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #f7971e, #ffd200);
+      color: #1a1a2e;
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .card .add-btn:hover { opacity: 0.85; }
+    .card .add-btn:disabled { background: #555; color: #999; cursor: not-allowed; }
+
+    .card.selected {
+      border-color: #4ecca3;
+      background: #4ecca315;
+    }
+
+    /* Plan summary */
+    #plan-section {
+      max-width: 700px;
+      margin: 10px auto 40px;
+      background: #ffffff0d;
+      border: 1px solid #ffffff20;
+      border-radius: 18px;
+      padding: 24px;
+    }
+
+    #plan-section h2 {
+      font-size: 1.15rem;
+      color: #4ecca3;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #4ecca330;
+      padding-bottom: 8px;
+    }
+
+    #plan-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+    #plan-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #ffffff08;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+    }
+
+    #plan-list li .remove-btn {
+      background: none;
+      border: none;
+      color: #ff6b6b;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 4px;
+    }
+
+    #plan-list .empty-msg { color: #666; font-style: italic; text-align: center; padding: 10px; }
+
+    .progress-bar-container {
+      background: #ffffff15;
+      border-radius: 20px;
+      height: 12px;
+      margin-top: 16px;
+      overflow: hidden;
+    }
+
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #4ecca3, #f7971e);
+      border-radius: 20px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    #total-display {
+      text-align: right;
+      margin-top: 8px;
+      font-size: 0.88rem;
+      color: #aaa;
+    }
+
+    #total-display span { color: #ffd200; font-weight: bold; }
+
+    .reset-btn {
+      display: block;
+      margin: 12px auto 0;
+      padding: 8px 28px;
+      background: #ff6b6b22;
+      border: 1px solid #ff6b6b55;
+      color: #ff6b6b;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.2s;
+    }
+
+    .reset-btn:hover { background: #ff6b6b44; }
+
+    /* Combo suggestions */
+    .combos {
+      max-width: 1100px;
+      margin: 0 auto 40px;
+    }
+
+    .combos h2 {
+      font-size: 1.1rem;
+      color: #ffd200;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    .combo-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .combo-card {
+      background: #ffffff0a;
+      border: 1px solid #ffd20030;
+      border-radius: 14px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .combo-card:hover {
+      border-color: #ffd200;
+      background: #ffd20015;
+    }
+
+    .combo-card h4 { color: #ffd200; margin-bottom: 6px; font-size: 0.95rem; }
+    .combo-card p  { color: #aaa; font-size: 0.8rem; line-height: 1.5; }
+    .combo-card .combo-total { margin-top: 8px; color: #4ecca3; font-weight: bold; font-size: 0.85rem; }
+
+    @media (max-width: 500px) {
+      header h1 { font-size: 1.4rem; }
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎉 Gorakhpur Masti Planner</h1>
+  <p>Plan the perfect day out in Gorakhpur within <strong style="color:#ffd200">₹1000</strong></p>
+</header>
+
+<!-- Budget remaining -->
+<div class="budget-bar-wrapper">
+  <span>Budget</span>
+  <div id="budget-remaining">₹1000 remaining</div>
+  <span>₹1000</span>
+</div>
+
+<!-- Category Tabs -->
+<div class="tabs" id="tabs">
+  <button class="tab-btn active" data-cat="all">All</button>
+  <button class="tab-btn" data-cat="food">🍽️ Food</button>
+  <button class="tab-btn" data-cat="sightseeing">🏛️ Sightseeing</button>
+  <button class="tab-btn" data-cat="entertainment">🎡 Entertainment</button>
+  <button class="tab-btn" data-cat="shopping">🛍️ Shopping</button>
+  <button class="tab-btn" data-cat="transport">🚗 Transport</button>
+</div>
+
+<!-- Activity Cards -->
+<div class="cards-grid" id="cards-grid"></div>
+
+<!-- Combo Suggestions -->
+<div class="combos">
+  <h2>✨ Ready-Made Day Plans</h2>
+  <div class="combo-cards" id="combo-cards"></div>
+</div>
+
+<!-- Your Plan -->
+<div id="plan-section">
+  <h2>📋 Your Plan</h2>
+  <ul id="plan-list">
+    <li class="empty-msg">Add activities above to start planning!</li>
+  </ul>
+  <div class="progress-bar-container">
+    <div id="progress-bar"></div>
+  </div>
+  <div id="total-display">Spent: <span id="spent-amount">₹0</span> / ₹1000</div>
+  <button class="reset-btn" onclick="resetPlan()">Reset Plan</button>
+</div>
+
+<script>
+  const BUDGET = 1000;
+  let spent = 0;
+  let plan = [];
+
+  const activities = [
+    // FOOD
+    { id: 1, name: "Rapti Ghat Street Food", emoji: "🍢", category: "food", cost: 80,
+      desc: "Aloo tikki, chaat, golgappe & jalebi near Rapti Ghat. A local street food paradise.",
+      tags: ["street food", "evening", "family"] },
+    { id: 2, name: "Terrace Cafe Gorakhpur", emoji: "☕", category: "food", cost: 150,
+      desc: "Enjoy coffee, sandwiches and snacks at one of the popular cafes in the city.",
+      tags: ["café", "chill", "couple"] },
+    { id: 3, name: "Litti Chokha Lunch", emoji: "🫓", category: "food", cost: 60,
+      desc: "Authentic UP-Bihar style Litti Chokha — hearty, delicious and very local.",
+      tags: ["local cuisine", "lunch"] },
+    { id: 4, name: "Momo & Chowmein Corner", emoji: "🥟", category: "food", cost: 70,
+      desc: "Popular momos and chowmein stalls near Golghar and Cinema Road.",
+      tags: ["snacks", "quick bite"] },
+    { id: 5, name: "Lassi & Rabri at Old City", emoji: "🥛", category: "food", cost: 50,
+      desc: "Famous thick lassi and rabri at the old bazaar lanes of Gorakhpur.",
+      tags: ["dessert", "traditional"] },
+    { id: 6, name: "Family Dinner – Local Dhaba", emoji: "🍛", category: "food", cost: 200,
+      desc: "Full thali dinner (dal, sabzi, roti, rice, papad) at a popular local dhaba for 2 people.",
+      tags: ["dinner", "family", "filling"] },
+
+    // SIGHTSEEING
+    { id: 7, name: "Gorakhnath Temple", emoji: "🛕", category: "sightseeing", cost: 0,
+      desc: "Visit the sacred Gorakhnath Temple — free entry, serene atmosphere, rich history.",
+      tags: ["free", "spiritual", "must-visit"] },
+    { id: 8, name: "Ramgarh Tal Lakeside", emoji: "🌊", category: "sightseeing", cost: 50,
+      desc: "Walk along the scenic Ramgarh Tal lake. Boating available at ₹50/person.",
+      tags: ["nature", "boating", "family"] },
+    { id: 9, name: "Gorakhpur Zoo", emoji: "🦁", category: "sightseeing", cost: 50,
+      desc: "Gorakhpur Zoological Park — great for families with kids. Entry ~₹50.",
+      tags: ["kids", "family", "nature"] },
+    { id: 10, name: "Railway Museum Gorakhpur", emoji: "🚂", category: "sightseeing", cost: 30,
+      desc: "Fascinating railway museum showcasing India's rail heritage. Entry ~₹30.",
+      tags: ["history", "educational", "kids"] },
+    { id: 11, name: "Veer Bahadur Singh Planetarium", emoji: "🌌", category: "sightseeing", cost: 60,
+      desc: "Explore the universe at Gorakhpur's planetarium. Shows on astronomy and space.",
+      tags: ["educational", "science", "family"] },
+    { id: 12, name: "Regional Science Centre", emoji: "🔬", category: "sightseeing", cost: 40,
+      desc: "Interactive science exhibits and displays — great for curious minds.",
+      tags: ["educational", "kids", "science"] },
+    { id: 13, name: "GD Birla Dharamshala Area", emoji: "🏯", category: "sightseeing", cost: 0,
+      desc: "Heritage building and peaceful surroundings — free to explore and photograph.",
+      tags: ["free", "heritage", "photography"] },
+
+    // ENTERTAINMENT
+    { id: 14, name: "Movie at PVR/Local Cinema", emoji: "🎬", category: "entertainment", cost: 180,
+      desc: "Catch a Hindi film at one of Gorakhpur's cinema halls or multiplexes.",
+      tags: ["movie", "evening", "couple"] },
+    { id: 15, name: "Ramgarh Tal Boating", emoji: "⛵", category: "entertainment", cost: 100,
+      desc: "Pedal boat or row boat on Ramgarh Tal for 30 mins. Fun for all ages.",
+      tags: ["outdoor", "fun", "family"] },
+    { id: 16, name: "Gaming Zone / Arcade", emoji: "🎮", category: "entertainment", cost: 100,
+      desc: "Gaming arcades and play zones available at Golghar or malls.",
+      tags: ["games", "youth", "indoor"] },
+    { id: 17, name: "Evening at City Mall", emoji: "🏬", category: "entertainment", cost: 50,
+      desc: "Stroll through GKP mall, window shop, and enjoy the air-conditioned environment.",
+      tags: ["mall", "casual", "evening"] },
+    { id: 18, name: "Cricket Ground / Sports", emoji: "🏏", category: "entertainment", cost: 30,
+      desc: "Book a cricket ground slot or play at a local sports facility.",
+      tags: ["sports", "outdoor", "group"] },
+
+    // SHOPPING
+    { id: 19, name: "Golghar Market Shopping", emoji: "🛒", category: "shopping", cost: 200,
+      desc: "Explore Gorakhpur's famous Golghar market for clothes, accessories & gifts.",
+      tags: ["market", "clothes", "bargain"] },
+    { id: 20, name: "Local Handicrafts & Souvenirs", emoji: "🎁", category: "shopping", cost: 100,
+      desc: "Buy local Gorakhpur terracotta and bamboo handicrafts as souvenirs.",
+      tags: ["gifts", "local craft", "unique"] },
+    { id: 21, name: "Imlidih Textile Market", emoji: "👕", category: "shopping", cost: 150,
+      desc: "Affordable clothing and fabric shopping at the local textile hub.",
+      tags: ["clothes", "wholesale", "budget"] },
+
+    // TRANSPORT
+    { id: 22, name: "City E-Rickshaw Rides", emoji: "🛺", category: "transport", cost: 60,
+      desc: "Hop on e-rickshaws to commute between multiple spots. Budget ~₹60 for the day.",
+      tags: ["commute", "budget", "local"] },
+    { id: 23, name: "Auto Rickshaw Day Pass", emoji: "🚌", category: "transport", cost: 100,
+      desc: "Hire an auto for 3-4 hours to cover multiple locations comfortably.",
+      tags: ["comfortable", "flexible", "group"] },
+    { id: 24, name: "Rapti Ghat to Zoo Cycle Ride", emoji: "🚲", category: "transport", cost: 40,
+      desc: "Rent a bicycle for a few hours and explore the scenic routes.",
+      tags: ["eco-friendly", "fun", "healthy"] },
+  ];
+
+  const combos = [
+    {
+      name: "🌅 Perfect Family Day",
+      desc: "Gorakhnath Temple → Zoo → Ramgarh Tal Boating → Litti Chokha Lunch → Evening Chaat at Rapti Ghat",
+      items: [7, 9, 15, 3, 1, 22],
+      total: 340
+    },
+    {
+      name: "🎭 Fun-Packed Youth Day",
+      desc: "Movie → Gaming Zone → Momo Snacks → Golghar Shopping → Evening Cafe",
+      items: [14, 16, 4, 19, 2, 22],
+      total: 660
+    },
+    {
+      name: "💑 Couple's Day Out",
+      desc: "Terrace Cafe brunch → Planetarium → Ramgarh Tal walk → Dinner at Dhaba",
+      items: [2, 11, 8, 6, 22],
+      total: 560
+    },
+    {
+      name: "🧒 Kids Special Day",
+      desc: "Railway Museum → Science Centre → Zoo → Arcade Games → Street Food",
+      items: [10, 12, 9, 16, 4, 22],
+      total: 350
+    },
+    {
+      name: "🕌 Heritage & Culture Tour",
+      desc: "Gorakhnath Temple → GD Birla Area → Railway Museum → Planetarium → Litti Chokha + Lassi",
+      items: [7, 13, 10, 11, 3, 5, 22],
+      total: 250
+    },
+    {
+      name: "🛍️ Shopping & Food Spree",
+      desc: "Golghar Market → Imlidih Textiles → Local Handicrafts → Cafe → Street Chaat",
+      items: [19, 21, 20, 2, 1, 22],
+      total: 660
+    },
+  ];
+
+  let activeCategory = "all";
+
+  function renderCards() {
+    const grid = document.getElementById("cards-grid");
+    const filtered = activeCategory === "all"
+      ? activities
+      : activities.filter(a => a.category === activeCategory);
+
+    grid.innerHTML = filtered.map(a => {
+      const inPlan = plan.find(p => p.id === a.id);
+      const canAfford = (spent + a.cost) <= BUDGET;
+      const btnDisabled = (!canAfford && !inPlan) ? "disabled" : "";
+      const selectedClass = inPlan ? "selected" : "";
+      return `
+        <div class="card ${selectedClass}" id="card-${a.id}">
+          <div class="emoji">${a.emoji}</div>
+          <h3>${a.name}</h3>
+          <p>${a.desc}</p>
+          <div class="cost-badge">${a.cost === 0 ? "FREE" : "₹" + a.cost}</div>
+          <div class="tags">${a.tags.map(t => `<span class="tag">${t}</span>`).join("")}</div>
+          <button class="add-btn" ${btnDisabled} onclick="toggleActivity(${a.id})">
+            ${inPlan ? "✓ Added — Remove" : (canAfford ? "+ Add to Plan" : "Over Budget")}
+          </button>
+        </div>`;
+    }).join("");
+  }
+
+  function renderCombos() {
+    document.getElementById("combo-cards").innerHTML = combos.map((c, i) => `
+      <div class="combo-card" onclick="applyCombo(${i})">
+        <h4>${c.name}</h4>
+        <p>${c.desc}</p>
+        <div class="combo-total">Est. Total: ₹${c.total}</div>
+      </div>`).join("");
+  }
+
+  function renderPlan() {
+    const list = document.getElementById("plan-list");
+    if (plan.length === 0) {
+      list.innerHTML = `<li class="empty-msg">Add activities above to start planning!</li>`;
+    } else {
+      list.innerHTML = plan.map(p => `
+        <li>
+          <span>${p.emoji} ${p.name}</span>
+          <span style="display:flex;align-items:center;gap:10px;">
+            <strong style="color:#ffd200">${p.cost === 0 ? "FREE" : "₹" + p.cost}</strong>
+            <button class="remove-btn" onclick="toggleActivity(${p.id})" title="Remove">✕</button>
+          </span>
+        </li>`).join("");
+    }
+    const pct = Math.min((spent / BUDGET) * 100, 100);
+    document.getElementById("progress-bar").style.width = pct + "%";
+    document.getElementById("spent-amount").textContent = "₹" + spent;
+    const rem = BUDGET - spent;
+    document.getElementById("budget-remaining").textContent =
+      rem >= 0 ? `₹${rem} remaining` : `₹${Math.abs(rem)} over budget!`;
+    document.getElementById("budget-remaining").style.color = rem >= 0 ? "#4ecca3" : "#ff6b6b";
+  }
+
+  function toggleActivity(id) {
+    const activity = activities.find(a => a.id === id);
+    const idx = plan.findIndex(p => p.id === id);
+    if (idx === -1) {
+      if (spent + activity.cost > BUDGET) return;
+      plan.push(activity);
+      spent += activity.cost;
+    } else {
+      plan.splice(idx, 1);
+      spent -= activity.cost;
+    }
+    renderCards();
+    renderPlan();
+  }
+
+  function applyCombo(i) {
+    plan = [];
+    spent = 0;
+    const combo = combos[i];
+    combo.items.forEach(id => {
+      const a = activities.find(x => x.id === id);
+      if (a && spent + a.cost <= BUDGET) {
+        plan.push(a);
+        spent += a.cost;
+      }
+    });
+    renderCards();
+    renderPlan();
+    document.getElementById("plan-section").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function resetPlan() {
+    plan = [];
+    spent = 0;
+    renderCards();
+    renderPlan();
+  }
+
+  // Tab switching
+  document.getElementById("tabs").addEventListener("click", e => {
+    if (!e.target.classList.contains("tab-btn")) return;
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    activeCategory = e.target.dataset.cat;
+    renderCards();
+  });
+
+  // Init
+  renderCards();
+  renderCombos();
+  renderPlan();
+</script>
+</body>
+</html>
