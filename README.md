@@ -1,234 +1,201 @@
-# Gorakhpur City Guide — Fun Planner & Healthcare
+# DevOps Projects — Abhishek Singh
 
-A full-stack web application for Gorakhpur residents and visitors to plan a day out within ₹1000 and find doctors/medicines at the best prices.
-
----
-
-## Features
-
-### v1 — Fun Planner
-- Browse 24 activities across 6 categories: Food, Sightseeing, Entertainment, Shopping, Transport
-- Dynamic budget tracker (₹1000 limit)
-- 6 pre-built day itineraries (Family Day, Couple's Day, Kids Special, etc.)
-- Save custom plans to the database
-
-### v2 — Healthcare
-- Find doctors by specialization (Cardiologist, Neurologist, Gynecologist, ENT, Dentist, etc.)
-- Filter by Government (AIIMS OPD — ₹10–50) or Private clinics
-- 12 medicine stores sorted by savings — Jan Aushadhi stores up to 90% cheaper
-- Filter stores by type: Jan Aushadhi, Generic, Online, Chain, Local
+Three full-stack containerized applications, each with Python backend, MySQL database, and Docker infrastructure.
 
 ---
 
-## Tech Stack
+## Projects Overview
 
-| Layer     | Technology            |
-|-----------|-----------------------|
-| Frontend  | HTML, CSS, Vanilla JS |
-| Backend   | Python 3.11 + Flask   |
-| Database  | MySQL 8.0             |
-| Server    | Nginx (Alpine)        |
-| Container | Docker + Docker Compose |
+| # | Project | Port | Description |
+|---|---------|------|-------------|
+| 1 | **Gorakhpur City Guide** | `8080` | Fun planner + Healthcare finder (v1 + v2) |
+| 2 | **Healthcare v2** | — | Built into Project 1 as a tab |
+| 3 | **NetStream** | `8090` | Netflix-like movie streaming app |
 
 ---
 
-## Project Structure
+## Project 1 & 2 — Gorakhpur City Guide
 
-```
-DevOps/
-├── backend/
-│   ├── app.py              # Flask REST API
-│   ├── requirements.txt    # Python dependencies
-│   └── Dockerfile          # Python 3.11-slim image
-├── db/
-│   ├── init.sql            # Schema + seed data (v1)
-│   └── v2_healthcare.sql   # Doctors & medicine stores (v2)
-├── nginx/
-│   ├── Dockerfile          # Nginx image with frontend baked in
-│   └── nginx.conf          # Static serve + /api/ proxy to backend
-├── gorakhpur-enjoy/
-│   └── index.html          # Frontend (Fun Planner + Healthcare tabs)
-├── docker-compose.yml      # Orchestrates db, backend, frontend
-└── .env.example            # Environment variable template
-```
+**Folder:** `gorakhpur-enjoy/`, `backend/`, `db/`, `nginx/`
 
----
+### Features
+- **v1 Fun Planner** — 24 activities, ₹1000 budget tracker, 6 day-combo plans, save plans to DB
+- **v2 Healthcare** — 29 doctors by specialization, 12 medicine stores sorted cheapest first (Jan Aushadhi up to 90% off)
 
-## Getting Started
+### Tech Stack
+| Layer | Tech |
+|-------|------|
+| Frontend | HTML, CSS, Vanilla JS (baked into nginx image) |
+| Backend | Python 3.11 + Flask |
+| Database | MySQL 8.0 |
+| Server | Nginx (Alpine) |
+| Infra | Docker + Docker Compose |
 
-### Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-
-### Run the Application
-
+### Run
 ```bash
-# Clone the repository
-git clone https://github.com/asingh5535/DevOps.git
-cd DevOps
-
-# (Optional) Copy and edit environment variables
-cp .env.example .env
-
-# Build and start all containers
 docker compose up -d --build
-
-# Verify all containers are running
-docker compose ps
 ```
 
-The app will be available at **http://localhost:8080**
+### Access
+| Service | URL |
+|---------|-----|
+| Web App | http://localhost:8080 |
+| API | http://localhost:5000 |
+| MySQL | localhost:3306 |
 
----
+### API Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/activities?category=food` | List activities |
+| POST | `/api/activities` | Add activity |
+| GET | `/api/combos` | Day combo plans |
+| GET/POST | `/api/plans` | Saved plans |
+| GET | `/api/doctors?specialization=Cardiologist` | Doctors (v2) |
+| GET | `/api/doctors/specializations` | All specializations |
+| GET | `/api/medicine-stores?type=jan_aushadhi` | Medicine stores (v2) |
 
-## Access URLs
-
-| Service         | URL                          |
-|-----------------|------------------------------|
-| Web App         | http://localhost:8080         |
-| Flask API       | http://localhost:5000         |
-| MySQL           | localhost:3306                |
-| Local Network   | http://192.168.31.23:8080    |
-
----
-
-## API Endpoints
-
-### Activities
-| Method | Endpoint                        | Description                        |
-|--------|---------------------------------|------------------------------------|
-| GET    | `/api/activities`               | List all activities                |
-| GET    | `/api/activities?category=food` | Filter by category                 |
-| POST   | `/api/activities`               | Create a new activity              |
-| PUT    | `/api/activities/<id>`          | Update an activity                 |
-| DELETE | `/api/activities/<id>`          | Delete an activity                 |
-
-### Combos
-| Method | Endpoint       | Description          |
-|--------|----------------|----------------------|
-| GET    | `/api/combos`  | List all day combos  |
-
-### Saved Plans
-| Method | Endpoint           | Description           |
-|--------|--------------------|-----------------------|
-| GET    | `/api/plans`       | List all saved plans  |
-| POST   | `/api/plans`       | Save a plan           |
-| DELETE | `/api/plans/<id>`  | Delete a saved plan   |
-
-### Doctors (v2)
-| Method | Endpoint                                        | Description                        |
-|--------|-------------------------------------------------|------------------------------------|
-| GET    | `/api/doctors`                                  | List all doctors                   |
-| GET    | `/api/doctors?specialization=Cardiologist`      | Filter by specialization           |
-| GET    | `/api/doctors?type=government`                  | Filter government/private          |
-| GET    | `/api/doctors/specializations`                  | List all unique specializations    |
-
-### Medicine Stores (v2)
-| Method | Endpoint                                   | Description                        |
-|--------|--------------------------------------------|------------------------------------|
-| GET    | `/api/medicine-stores`                     | List all stores (cheapest first)   |
-| GET    | `/api/medicine-stores?type=jan_aushadhi`   | Filter by store type               |
-
-### Health Check
-| Method | Endpoint       | Description      |
-|--------|----------------|------------------|
-| GET    | `/api/health`  | Backend status   |
-
----
-
-## Database
-
-### Tables
-
-| Table            | Rows | Description                        |
-|------------------|------|------------------------------------|
-| `activities`     | 24   | Day-out activities with costs      |
-| `combos`         | 6    | Pre-built itinerary combinations   |
-| `saved_plans`    | —    | User-saved plans                   |
-| `doctors`        | 29   | Doctors with specialization & fees |
-| `medicine_stores`| 12   | Pharmacies sorted by savings       |
+### Database Tables
+| Table | Rows | Description |
+|-------|------|-------------|
+| `activities` | 24 | Day-out activities |
+| `combos` | 6 | Pre-built itineraries |
+| `saved_plans` | — | User-saved plans |
+| `doctors` | 29 | Gorakhpur doctors with fees |
+| `medicine_stores` | 12 | Pharmacies sorted by savings |
 
 ### Connect to MySQL
-
 ```bash
 winpty docker exec -it gorakhpur_db mysql -u gorakhpur -pgorakhpur123 gorakhpur_planner
 ```
 
-### Sample Queries
+---
 
-```sql
--- All activities by category
-SELECT name, cost FROM activities WHERE category = 'food';
+## Project 3 — NetStream (Netflix Clone)
 
--- Government doctors only
-SELECT name, specialization, fee_min, fee_max FROM doctors WHERE type = 'government';
+**Folder:** `netflix-clone/`
 
--- Cheapest medicine stores
-SELECT name, type, savings_percent FROM medicine_stores ORDER BY savings_percent DESC;
+### Features
+- User auth (register / login with JWT + bcrypt)
+- Browse 20 movies across 9 genres
+- Netflix-style UI: hero banner, genre rows, hover cards
+- Full-screen video player with resume support
+- 1–10 star rating system (live average update)
+- Reviews — post and delete your own
+- Watchlist — My List page
+- Watch history — "Continue Watching" row
+- Search by title
 
--- All saved plans
-SELECT * FROM saved_plans ORDER BY created_at DESC;
+### Tech Stack
+| Layer | Tech |
+|-------|------|
+| Frontend | HTML, CSS, Vanilla JS SPA |
+| Backend | Python 3.11 + Flask + PyJWT + bcrypt |
+| Database | MySQL 8.0 |
+| Server | Nginx (Alpine) |
+| Infra | Docker + Docker Compose |
+
+### Run
+```bash
+cd netflix-clone
+docker compose up -d --build
+```
+
+### Access
+| Service | URL |
+|---------|-----|
+| Web App | http://localhost:8090 |
+| API | http://localhost:5001 |
+| MySQL | localhost:3307 |
+
+### Demo Login
+| Field | Value |
+|-------|-------|
+| Email | `netflix@demo.com` |
+| Password | `netflix123` |
+
+### API Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register user |
+| POST | `/api/auth/login` | Login, returns JWT |
+| GET | `/api/movies` | All movies (`?search=`, `?genre_id=`) |
+| GET | `/api/movies/featured` | Hero banner movies |
+| GET | `/api/movies/trending` | Trending movies |
+| GET | `/api/movies/by-genre` | Movies grouped by genre |
+| GET | `/api/movies/<id>` | Movie detail |
+| POST | `/api/movies/<id>/rate` | Rate a movie (1–10) |
+| GET/POST | `/api/movies/<id>/reviews` | Get / add reviews |
+| DELETE | `/api/reviews/<id>` | Delete own review |
+| GET/POST/DELETE | `/api/watchlist` | Watchlist management |
+| GET/POST/DELETE | `/api/history/<id>` | Watch history & progress |
+
+### Database Tables
+| Table | Rows | Description |
+|-------|------|-------------|
+| `users` | — | Registered users |
+| `movies` | 20 | Movies with video URLs |
+| `genres` | 9 | Action, Drama, Comedy… |
+| `ratings` | — | User ratings (1–10) |
+| `reviews` | — | User text reviews |
+| `watchlist` | — | Per-user watchlists |
+| `watch_history` | — | Progress tracking |
+
+### Connect to MySQL
+```bash
+winpty docker exec -it netflix_db mysql -u netflix -pnetflix123 netflix
 ```
 
 ---
 
-## Docker Commands
+## Full Repo Structure
+
+```
+DevOps/
+├── backend/                    # Gorakhpur Flask API
+│   ├── app.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── db/                         # Gorakhpur MySQL
+│   ├── init.sql                # v1 schema + seed
+│   └── v2_healthcare.sql       # doctors + medicine stores
+├── nginx/                      # Gorakhpur nginx
+│   ├── Dockerfile
+│   └── nginx.conf
+├── gorakhpur-enjoy/
+│   └── index.html              # Gorakhpur frontend
+├── netflix-clone/              # Netflix clone (Project 3)
+│   ├── backend/
+│   │   ├── app.py
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   ├── frontend/
+│   │   ├── index.html
+│   │   ├── nginx.conf
+│   │   └── Dockerfile
+│   ├── db/
+│   │   └── init.sql
+│   └── docker-compose.yml
+├── docker-compose.yml          # Gorakhpur orchestration
+└── README.md
+```
+
+---
+
+## Run All Projects Together
 
 ```bash
-# Start all services
+# Project 1 & 2 — Gorakhpur City Guide
+cd C:/Users/lenovo/Downloads/abhishekgitclonerepo/DevOps
 docker compose up -d
 
-# Stop all services
-docker compose down
-
-# Rebuild after code changes
-docker compose build
+# Project 3 — NetStream
+cd C:/Users/lenovo/Downloads/abhishekgitclonerepo/DevOps/netflix-clone
 docker compose up -d
-
-# Rebuild a specific service
-docker compose build backend
-docker compose up -d --no-deps backend
-
-# View live logs
-docker compose logs -f
-
-# View logs for a specific service
-docker compose logs -f backend
 ```
-
----
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and update values:
-
-```env
-MYSQL_ROOT_PASSWORD=root123
-MYSQL_DATABASE=gorakhpur_planner
-MYSQL_USER=gorakhpur
-MYSQL_PASSWORD=gorakhpur123
-```
-
----
-
-## Make it Public (Temporary URL)
-
-Requires Node.js installed:
-
-```bash
-npx localtunnel --port 8080 --subdomain gorakhpur-guide
-# Opens: https://gorakhpur-guide.loca.lt
-```
-
----
-
-## Data Sources
-
-- Doctors: [Fatima Hospital Gorakhpur](https://www.fatimahospitalgkp.com/DoctorsList), [AIIMS Gorakhpur](https://aiimsgorakhpur.edu.in), [Practo](https://www.practo.com/gorakhpur/doctors)
-- Medicine Stores: [Jan Aushadhi Kendras](https://www.genericdrugscan.com/jan-aushadhi-stores/uttar-pradesh/gorakhpur), [Zeelab Pharmacy](https://zeelabpharmacy.com/store-locator/uttar-pradesh/gorakhpur), [Apollo Gorakhpur](https://www.apollogorakhpur.com)
 
 ---
 
 ## Author
 
-**Abhishek Singh**  
+**Abhishek Singh**
 GitHub: [@asingh5535](https://github.com/asingh5535)
