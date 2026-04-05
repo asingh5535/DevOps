@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: brahma_db
+    restart: always
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-brahma}
+      POSTGRES_USER:     ${POSTGRES_USER:-brahma}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brahma123}
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brahma} -d ${POSTGRES_DB:-brahma}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: brahma_redis
+    restart: always
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: brahma_backend
+    restart: always
+    environment:
+      PORT:        4000
+      DB_HOST:     db
+      DB_PORT:     5432
+      DB_NAME:     ${POSTGRES_DB:-brahma}
+      DB_USER:     ${POSTGRES_USER:-brahma}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-brahma123}
+      REDIS_HOST:  redis
+      REDIS_PORT:  6379
+      JWT_SECRET:  ${JWT_SECRET:-brahma_jwt_secret_change_in_prod}
+      CLIENT_URL:  http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: brahma_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

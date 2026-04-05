@@ -1,16 +1,17 @@
 # DevOps Projects — Abhishek Singh
 
-Three full-stack containerized applications, each with Python backend, MySQL database, and Docker infrastructure.
+Four full-stack containerized applications covering Python/Flask, Node.js, MySQL, PostgreSQL, Redis, and Docker infrastructure.
 
 ---
 
 ## Projects Overview
 
-| # | Project | Port | Description |
-|---|---------|------|-------------|
-| 1 | **Gorakhpur City Guide** | `8080` | Fun planner + Healthcare finder (v1 + v2) |
-| 2 | **Healthcare v2** | — | Built into Project 1 as a tab |
-| 3 | **NetStream** | `8090` | Netflix-like movie streaming app |
+| # | Project | Port | Stack | Description |
+|---|---------|------|-------|-------------|
+| 1 | **Gorakhpur City Guide** | `8080` | Python + MySQL | Fun planner + Healthcare finder (v1 + v2) |
+| 2 | **Healthcare v2** | — | Built into Project 1 | Doctors & pharmacies tab |
+| 3 | **NetStream** | `8090` | Python + MySQL | Netflix-like movie streaming app |
+| 4 | **Brahma** | `3000` | Node.js + PostgreSQL + Redis | Twitter-like social platform |
 
 ---
 
@@ -147,6 +148,81 @@ winpty docker exec -it netflix_db mysql -u netflix -pnetflix123 netflix
 
 ---
 
+## Project 4 — Brahma (Twitter Clone)
+
+**Folder:** `brahma/`
+
+### Features
+- JWT auth — register, login, persistent sessions
+- Tweet, reply, retweet, like, bookmark (up to 280 characters)
+- Hashtag auto-extraction, clickable hashtags, trending sidebar
+- Personalised timeline (Redis-cached, 60 s TTL)
+- Full-text tweet search (PostgreSQL)
+- Real-time notifications via Socket.io (likes, retweets, follows, replies)
+- Direct messages with conversation list
+- User profiles with follow/unfollow, bio editing
+- "Who to follow" suggestions
+- Trending hashtags (Redis-cached, 5 min TTL)
+- Three-column Twitter dark-mode UI
+
+### Tech Stack
+| Layer | Tech |
+|-------|------|
+| Frontend | React 18 + Vite + React Router v6 |
+| Backend | Node.js 20 + Express 4 |
+| Database | PostgreSQL 16 |
+| Cache | Redis 7 |
+| Real-time | Socket.io 4 |
+| Auth | JWT + bcryptjs |
+| Server | Nginx (multi-stage Docker build) |
+| Infra | Docker + Docker Compose |
+
+### Run
+```bash
+cd brahma
+docker compose up -d --build
+```
+
+### Access
+| Service | URL / Port |
+|---------|-----------|
+| Web App | http://localhost:3000 |
+| Backend API | http://localhost:4000 |
+| PostgreSQL | localhost:5433 |
+| Redis | localhost:6380 |
+
+### Demo Accounts (password: `brahma123`)
+| Name | Handle | Email |
+|------|--------|-------|
+| Brahma Admin | @brahma | brahma@demo.com |
+| Abhishek Singh | @abhishek | abhishek@demo.com |
+| Priya Sharma | @priyasharma | priya@demo.com |
+| Rahul Gupta | @rahulgupta | rahul@demo.com |
+| Neha Verma | @nehaverma | neha@demo.com |
+
+### Key API Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register user |
+| POST | `/api/auth/login` | Login, returns JWT |
+| GET | `/api/tweets/timeline` | Personalised feed |
+| POST | `/api/tweets` | Post a tweet |
+| POST | `/api/tweets/:id/like` | Like a tweet |
+| POST | `/api/tweets/:id/retweet` | Retweet |
+| GET | `/api/users/:handle` | User profile |
+| POST | `/api/users/:id/follow` | Follow user |
+| GET | `/api/search?q=` | Full-text search |
+| GET | `/api/trending` | Trending hashtags |
+| GET | `/api/messages/conversations` | DM list |
+| POST | `/api/messages/:userId` | Send DM |
+
+### Connect to PostgreSQL
+```bash
+docker exec -it brahma_db psql -U brahma -d brahma
+```
+
+---
+
 ## Full Repo Structure
 
 ```
@@ -156,42 +232,76 @@ DevOps/
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── db/                         # Gorakhpur MySQL
-│   ├── init.sql                # v1 schema + seed
-│   └── v2_healthcare.sql       # doctors + medicine stores
+│   ├── init.sql
+│   └── v2_healthcare.sql
 ├── nginx/                      # Gorakhpur nginx
 │   ├── Dockerfile
 │   └── nginx.conf
 ├── gorakhpur-enjoy/
-│   └── index.html              # Gorakhpur frontend
-├── netflix-clone/              # Netflix clone (Project 3)
+│   └── index.html              # Gorakhpur frontend SPA
+├── netflix-clone/              # Project 3 — NetStream
 │   ├── backend/
-│   │   ├── app.py
-│   │   ├── requirements.txt
-│   │   └── Dockerfile
 │   ├── frontend/
-│   │   ├── index.html
-│   │   ├── nginx.conf
-│   │   └── Dockerfile
 │   ├── db/
-│   │   └── init.sql
 │   └── docker-compose.yml
+├── brahma/                     # Project 4 — Brahma (Twitter clone)
+│   ├── backend/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── src/
+│   │       ├── app.js
+│   │       ├── db.js
+│   │       ├── redis.js
+│   │       ├── middleware/auth.js
+│   │       └── routes/         # auth, tweets, users, notifications,
+│   │                           # messages, search, trending
+│   ├── frontend/
+│   │   ├── Dockerfile
+│   │   ├── nginx.conf
+│   │   ├── vite.config.js
+│   │   └── src/
+│   │       ├── App.jsx
+│   │       ├── api.js
+│   │       ├── index.css
+│   │       ├── context/AuthContext.jsx
+│   │       ├── components/     # Layout, Sidebar, RightSidebar,
+│   │       │                   # TweetCard, TweetComposer
+│   │       └── pages/          # Auth, Home, Explore, Notifications,
+│   │                           # Profile, Bookmarks, Messages
+│   ├── db/init.sql             # PostgreSQL schema + seed data
+│   ├── docker-compose.yml
+│   ├── .env.example
+│   └── README.md
 ├── docker-compose.yml          # Gorakhpur orchestration
 └── README.md
 ```
 
 ---
 
-## Run All Projects Together
+## Run All Projects
+
+Each project has its own Docker Compose file and runs on separate ports — they can all run simultaneously.
 
 ```bash
-# Project 1 & 2 — Gorakhpur City Guide
-cd C:/Users/lenovo/Downloads/abhishekgitclonerepo/DevOps
+# Project 1 & 2 — Gorakhpur City Guide (port 8080)
+cd DevOps
 docker compose up -d
 
-# Project 3 — NetStream
-cd C:/Users/lenovo/Downloads/abhishekgitclonerepo/DevOps/netflix-clone
+# Project 3 — NetStream (port 8090)
+cd DevOps/netflix-clone
+docker compose up -d
+
+# Project 4 — Brahma (port 3000)
+cd DevOps/brahma
 docker compose up -d
 ```
+
+### Port Summary
+| Project | App Port | DB Port |
+|---------|----------|---------|
+| Gorakhpur | 8080 | 3306 |
+| NetStream | 8090 | 3307 |
+| Brahma | 3000 | 5433 |
 
 ---
 
