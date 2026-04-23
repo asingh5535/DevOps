@@ -1,0 +1,21 @@
+# Environment
+.env
+*.local
+
+# Go
+backend/kubevision-api
+backend/vendor/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Kind kubeconfig exports
+*.kubeconfig.yaml
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
