@@ -1,0 +1,41 @@
+version: "3.9"
+
+# Development compose — hot reload for frontend, backend with live config
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kubevision-backend-dev
+    environment:
+      - PORT=8080
+      - ENV=development
+      - JWT_SECRET=dev-secret-do-not-use-in-prod
+      - KUBECONFIG=/root/.kube/config
+    volumes:
+      - ${KUBECONFIG:-~/.kube/config}:/root/.kube/config:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - kubevision-dev
+
+  frontend-dev:
+    image: node:20-alpine
+    container_name: kubevision-frontend-dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install --legacy-peer-deps && npm run dev -- --host 0.0.0.0"
+    environment:
+      - VITE_API_URL=http://localhost:8080/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - kubevision-dev
+
+networks:
+  kubevision-dev:
+    driver: bridge

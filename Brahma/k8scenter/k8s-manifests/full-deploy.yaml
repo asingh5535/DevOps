@@ -1,0 +1,186 @@
+---
+# ── Namespace ──────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8scenter
+  labels:
+    app.kubernetes.io/name: k8scenter
+
+---
+# ── ServiceAccount ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8scenter-backend
+  namespace: k8scenter
+
+---
+# ── ClusterRole (full read + write for management) ────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8scenter-role
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  - nonResourceURLs: ["*"]
+    verbs: ["*"]
+
+---
+# ── ClusterRoleBinding ────────────────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8scenter-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k8scenter-role
+subjects:
+  - kind: ServiceAccount
+    name: k8scenter-backend
+    namespace: k8scenter
+
+---
+# ── JWT Secret ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: k8scenter-secrets
+  namespace: k8scenter
+type: Opaque
+stringData:
+  jwt-secret: "k8scenter-jwt-super-secret-2024"
+
+---
+# ── Backend Deployment ────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8scenter-backend
+  namespace: k8scenter
+  labels:
+    app: k8scenter-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8scenter-backend
+  template:
+    metadata:
+      labels:
+        app: k8scenter-backend
+    spec:
+      serviceAccountName: k8scenter-backend
+      containers:
+        - name: backend
+          image: kubevision-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: ENV
+              value: "production"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: k8scenter-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+---
+# ── Backend Service (ClusterIP) ───────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: k8scenter
+spec:
+  selector:
+    app: k8scenter-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+---
+# ── Frontend Deployment ───────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8scenter-frontend
+  namespace: k8scenter
+  labels:
+    app: k8scenter-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8scenter-frontend
+  template:
+    metadata:
+      labels:
+        app: k8scenter-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: kubevision-frontend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+---
+# ── Frontend Service (NodePort — accessible at localhost:30080) ───────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: k8scenter
+spec:
+  type: NodePort
+  selector:
+    app: k8scenter-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080

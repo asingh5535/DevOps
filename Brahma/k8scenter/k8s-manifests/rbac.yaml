@@ -1,0 +1,142 @@
+---
+# Namespace for KubeVision itself (when deployed in-cluster)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubevision
+  labels:
+    app.kubernetes.io/name: kubevision
+    app.kubernetes.io/part-of: kubevision
+
+---
+# ServiceAccount for the backend
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevision-backend
+  namespace: kubevision
+  labels:
+    app.kubernetes.io/name: kubevision
+    app.kubernetes.io/component: backend
+
+---
+# ClusterRole with full read access + limited write for management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubevision-reader
+  labels:
+    app.kubernetes.io/name: kubevision
+rules:
+  # Core resources — full read
+  - apiGroups: [""]
+    resources:
+      - namespaces
+      - nodes
+      - pods
+      - pods/log
+      - pods/exec
+      - pods/portforward
+      - services
+      - endpoints
+      - events
+      - configmaps
+      - secrets
+      - persistentvolumes
+      - persistentvolumeclaims
+      - serviceaccounts
+      - replicationcontrollers
+      - resourcequotas
+      - limitranges
+    verbs: ["get", "list", "watch"]
+
+  # Apps — full read
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - statefulsets
+      - daemonsets
+      - replicasets
+    verbs: ["get", "list", "watch"]
+
+  # Batch — full read
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+
+  # Networking — full read
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+      - ingressclasses
+      - networkpolicies
+    verbs: ["get", "list", "watch"]
+
+  # Storage — full read
+  - apiGroups: ["storage.k8s.io"]
+    resources:
+      - storageclasses
+      - volumeattachments
+    verbs: ["get", "list", "watch"]
+
+  # RBAC — full read
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources:
+      - clusterroles
+      - clusterrolebindings
+      - roles
+      - rolebindings
+    verbs: ["get", "list", "watch"]
+
+  # CRDs — full read
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources:
+      - customresourcedefinitions
+    verbs: ["get", "list", "watch"]
+
+  # Metrics
+  - apiGroups: ["metrics.k8s.io"]
+    resources:
+      - nodes
+      - pods
+    verbs: ["get", "list"]
+
+  # All CRD instances (dynamic resources)
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ClusterRole with write permissions (for admin users)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubevision-admin
+  labels:
+    app.kubernetes.io/name: kubevision
+rules:
+  # Full access to all resources
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  - nonResourceURLs: ["*"]
+    verbs: ["*"]
+
+---
+# Bind the reader role to the service account (read-only mode)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevision-backend-reader
+  labels:
+    app.kubernetes.io/name: kubevision
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubevision-reader
+subjects:
+  - kind: ServiceAccount
+    name: kubevision-backend
+    namespace: kubevision

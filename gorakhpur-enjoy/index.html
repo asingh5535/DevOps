@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Gorakhpur City Guide – Fun Planner & Healthcare</title>
+  <title>Gorakhpur 1000 Rs Fun Planner</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -224,15 +224,9 @@
 
     #total-display span { color: #ffd200; font-weight: bold; }
 
-    .plan-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-top: 12px;
-      flex-wrap: wrap;
-    }
-
     .reset-btn {
+      display: block;
+      margin: 12px auto 0;
       padding: 8px 28px;
       background: #ff6b6b22;
       border: 1px solid #ff6b6b55;
@@ -244,39 +238,6 @@
     }
 
     .reset-btn:hover { background: #ff6b6b44; }
-
-    .save-btn {
-      padding: 8px 28px;
-      background: #4ecca322;
-      border: 1px solid #4ecca355;
-      color: #4ecca3;
-      border-radius: 20px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      transition: background 0.2s;
-    }
-
-    .save-btn:hover { background: #4ecca344; }
-    .save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    /* Toast notification */
-    #toast {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%) translateY(80px);
-      background: #4ecca3;
-      color: #1a1a2e;
-      font-weight: bold;
-      padding: 10px 24px;
-      border-radius: 30px;
-      font-size: 0.9rem;
-      transition: transform 0.3s ease;
-      z-index: 999;
-      pointer-events: none;
-    }
-
-    #toast.show { transform: translateX(-50%) translateY(0); }
 
     /* Combo suggestions */
     .combos {
@@ -315,243 +276,18 @@
     .combo-card p  { color: #aaa; font-size: 0.8rem; line-height: 1.5; }
     .combo-card .combo-total { margin-top: 8px; color: #4ecca3; font-weight: bold; font-size: 0.85rem; }
 
-    /* Loading spinner */
-    .loading { text-align: center; color: #aaa; padding: 40px; font-size: 1rem; }
-
     @media (max-width: 500px) {
       header h1 { font-size: 1.4rem; }
       .cards-grid { grid-template-columns: 1fr; }
     }
-
-    /* ── V2: Page-level navigation ───────────────────────────────────────── */
-    .page-nav {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin: 20px auto 0;
-      max-width: 500px;
-    }
-
-    .page-nav-btn {
-      flex: 1;
-      padding: 10px 20px;
-      border: 1px solid #ffffff25;
-      border-radius: 30px;
-      background: #ffffff10;
-      color: #ccc;
-      cursor: pointer;
-      font-size: 0.92rem;
-      font-weight: 600;
-      transition: all 0.25s;
-    }
-
-    .page-nav-btn.active {
-      background: linear-gradient(90deg, #f7971e, #ffd200);
-      color: #1a1a2e;
-      border-color: transparent;
-    }
-
-    .page-section { display: none; }
-    .page-section.active { display: block; }
-
-    /* ── V2: Healthcare section ──────────────────────────────────────────── */
-    .hc-filter-bar {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin: 18px auto;
-      max-width: 900px;
-    }
-
-    .hc-filter-btn {
-      padding: 7px 18px;
-      border: none;
-      border-radius: 30px;
-      background: #ffffff15;
-      color: #ccc;
-      cursor: pointer;
-      font-size: 0.84rem;
-      transition: all 0.25s;
-    }
-
-    .hc-filter-btn.active, .hc-filter-btn:hover {
-      background: linear-gradient(90deg, #6a11cb, #2575fc);
-      color: #fff;
-      font-weight: bold;
-    }
-
-    .hc-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 16px;
-      max-width: 1100px;
-      margin: 0 auto 40px;
-    }
-
-    .doc-card {
-      background: #ffffff0d;
-      border: 1px solid #6a11cb40;
-      border-radius: 16px;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .doc-card:hover { transform: translateY(-3px); box-shadow: 0 6px 24px #00000060; }
-
-    .doc-card .doc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-
-    .doc-card h3 { font-size: 1rem; color: #a78bfa; }
-
-    .doc-card .spec-badge {
-      font-size: 0.75rem;
-      background: #6a11cb30;
-      color: #c4b5fd;
-      border: 1px solid #6a11cb50;
-      border-radius: 20px;
-      padding: 2px 10px;
-      white-space: nowrap;
-    }
-
-    .doc-card .gov-badge {
-      font-size: 0.72rem;
-      background: #16a34a30;
-      color: #4ade80;
-      border: 1px solid #16a34a50;
-      border-radius: 20px;
-      padding: 2px 10px;
-    }
-
-    .doc-card .hospital { font-size: 0.83rem; color: #ffd200; }
-    .doc-card .address  { font-size: 0.78rem; color: #999; }
-
-    .doc-card .fee-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 4px;
-    }
-
-    .doc-card .fee {
-      font-size: 0.88rem;
-      font-weight: bold;
-      color: #4ecca3;
-    }
-
-    .doc-card .timing { font-size: 0.78rem; color: #aaa; }
-
-    .doc-card .rating { font-size: 0.8rem; color: #ffd200; }
-
-    .doc-card .phone-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      margin-top: auto;
-      padding: 7px 16px;
-      background: #6a11cb22;
-      border: 1px solid #6a11cb55;
-      color: #c4b5fd;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      text-decoration: none;
-      transition: background 0.2s;
-    }
-
-    .doc-card .phone-link:hover { background: #6a11cb44; }
-
-    /* Medicine store cards */
-    .store-card {
-      background: #ffffff0d;
-      border: 1px solid #0ea5e940;
-      border-radius: 16px;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .store-card:hover { transform: translateY(-3px); box-shadow: 0 6px 24px #00000060; }
-
-    .store-card h3 { font-size: 1rem; color: #38bdf8; }
-
-    .store-card .type-badge {
-      display: inline-block;
-      font-size: 0.72rem;
-      border-radius: 20px;
-      padding: 2px 10px;
-      width: fit-content;
-    }
-
-    .type-badge.jan_aushadhi   { background: #16a34a25; color: #4ade80; border: 1px solid #16a34a50; }
-    .type-badge.generic        { background: #0ea5e925; color: #38bdf8; border: 1px solid #0ea5e950; }
-    .type-badge.pharmacy_chain { background: #f7971e25; color: #fbbf24; border: 1px solid #f7971e50; }
-    .type-badge.local          { background: #ffffff15; color: #ccc;    border: 1px solid #ffffff25; }
-    .type-badge.online         { background: #a78bfa25; color: #c4b5fd; border: 1px solid #a78bfa50; }
-
-    .store-card .savings {
-      font-size: 1.3rem;
-      font-weight: bold;
-      color: #4ade80;
-    }
-
-    .store-card .address { font-size: 0.8rem; color: #999; }
-    .store-card .timing  { font-size: 0.78rem; color: #aaa; }
-
-    .store-card .features {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin-top: 4px;
-    }
-
-    .store-card .feat-tag {
-      font-size: 0.7rem;
-      background: #0ea5e915;
-      color: #7dd3fc;
-      border-radius: 8px;
-      padding: 2px 8px;
-    }
-
-    .store-card .delivery-badge {
-      font-size: 0.72rem;
-      background: #4ade8020;
-      color: #4ade80;
-      border-radius: 10px;
-      padding: 2px 8px;
-    }
-
-    .hc-section-title {
-      font-size: 1.2rem;
-      color: #a78bfa;
-      text-align: center;
-      margin: 30px auto 14px;
-      max-width: 1100px;
-      border-bottom: 1px solid #6a11cb30;
-      padding-bottom: 10px;
-    }
-
-    .hc-section-title.stores { color: #38bdf8; border-color: #0ea5e930; }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>🗺️ Gorakhpur City Guide</h1>
-  <p>Plan your day, find doctors & get medicines at the best prices</p>
+  <h1>🎉 Gorakhpur Masti Planner</h1>
+  <p>Plan the perfect day out in Gorakhpur within <strong style="color:#ffd200">₹1000</strong></p>
 </header>
-
-<!-- Page-level navigation -->
-<div class="page-nav">
-  <button class="page-nav-btn active" onclick="switchPage('planner', this)">🎉 Fun Planner</button>
-  <button class="page-nav-btn" onclick="switchPage('healthcare', this)">🏥 Healthcare v2</button>
-</div>
-
-<!-- ══ FUN PLANNER PAGE ══════════════════════════════════════════════════ -->
-<div id="page-planner" class="page-section active">
 
 <!-- Budget remaining -->
 <div class="budget-bar-wrapper">
@@ -571,16 +307,12 @@
 </div>
 
 <!-- Activity Cards -->
-<div class="cards-grid" id="cards-grid">
-  <p class="loading">Loading activities...</p>
-</div>
+<div class="cards-grid" id="cards-grid"></div>
 
 <!-- Combo Suggestions -->
 <div class="combos">
   <h2>✨ Ready-Made Day Plans</h2>
-  <div class="combo-cards" id="combo-cards">
-    <p class="loading">Loading combos...</p>
-  </div>
+  <div class="combo-cards" id="combo-cards"></div>
 </div>
 
 <!-- Your Plan -->
@@ -593,95 +325,157 @@
     <div id="progress-bar"></div>
   </div>
   <div id="total-display">Spent: <span id="spent-amount">₹0</span> / ₹1000</div>
-  <div class="plan-actions">
-    <button class="reset-btn" onclick="resetPlan()">Reset Plan</button>
-    <button class="save-btn" id="save-btn" onclick="savePlan()" disabled>Save Plan</button>
-  </div>
+  <button class="reset-btn" onclick="resetPlan()">Reset Plan</button>
 </div>
-
-<!-- Toast -->
-<div id="toast"></div>
-
-</div> <!-- end #page-planner -->
-
-<!-- ══ HEALTHCARE PAGE (V2) ═════════════════════════════════════════════ -->
-<div id="page-healthcare" class="page-section">
-
-  <!-- Doctors Section -->
-  <div class="hc-section-title">👨‍⚕️ Find a Doctor in Gorakhpur</div>
-
-  <!-- Specialization filter -->
-  <div class="hc-filter-bar" id="spec-filter-bar">
-    <button class="hc-filter-btn active" data-spec="all">All Specialists</button>
-    <button class="hc-filter-btn" data-spec="government">🏛️ Govt / Free</button>
-  </div>
-
-  <div class="hc-grid" id="doctors-grid">
-    <p class="loading">Loading doctors...</p>
-  </div>
-
-  <!-- Medicine Stores Section -->
-  <div class="hc-section-title stores">💊 Where to Buy Medicines (Cheapest First)</div>
-
-  <!-- Store type filter -->
-  <div class="hc-filter-bar" id="store-filter-bar">
-    <button class="hc-filter-btn active" data-stype="all">All Stores</button>
-    <button class="hc-filter-btn" data-stype="jan_aushadhi">🟢 Jan Aushadhi</button>
-    <button class="hc-filter-btn" data-stype="generic">🔵 Generic</button>
-    <button class="hc-filter-btn" data-stype="online">🟣 Online</button>
-    <button class="hc-filter-btn" data-stype="pharmacy_chain">🟡 Chain</button>
-    <button class="hc-filter-btn" data-stype="local">⚪ Local</button>
-  </div>
-
-  <div class="hc-grid" id="stores-grid">
-    <p class="loading">Loading stores...</p>
-  </div>
-
-</div> <!-- end #page-healthcare -->
 
 <script>
   const BUDGET = 1000;
   let spent = 0;
   let plan = [];
-  let activities = [];
-  let combos = [];
+
+  const activities = [
+    // FOOD
+    { id: 1, name: "Rapti Ghat Street Food", emoji: "🍢", category: "food", cost: 80,
+      desc: "Aloo tikki, chaat, golgappe & jalebi near Rapti Ghat. A local street food paradise.",
+      tags: ["street food", "evening", "family"] },
+    { id: 2, name: "Terrace Cafe Gorakhpur", emoji: "☕", category: "food", cost: 150,
+      desc: "Enjoy coffee, sandwiches and snacks at one of the popular cafes in the city.",
+      tags: ["café", "chill", "couple"] },
+    { id: 3, name: "Litti Chokha Lunch", emoji: "🫓", category: "food", cost: 60,
+      desc: "Authentic UP-Bihar style Litti Chokha — hearty, delicious and very local.",
+      tags: ["local cuisine", "lunch"] },
+    { id: 4, name: "Momo & Chowmein Corner", emoji: "🥟", category: "food", cost: 70,
+      desc: "Popular momos and chowmein stalls near Golghar and Cinema Road.",
+      tags: ["snacks", "quick bite"] },
+    { id: 5, name: "Lassi & Rabri at Old City", emoji: "🥛", category: "food", cost: 50,
+      desc: "Famous thick lassi and rabri at the old bazaar lanes of Gorakhpur.",
+      tags: ["dessert", "traditional"] },
+    { id: 6, name: "Family Dinner – Local Dhaba", emoji: "🍛", category: "food", cost: 200,
+      desc: "Full thali dinner (dal, sabzi, roti, rice, papad) at a popular local dhaba for 2 people.",
+      tags: ["dinner", "family", "filling"] },
+
+    // SIGHTSEEING
+    { id: 7, name: "Gorakhnath Temple", emoji: "🛕", category: "sightseeing", cost: 0,
+      desc: "Visit the sacred Gorakhnath Temple — free entry, serene atmosphere, rich history.",
+      tags: ["free", "spiritual", "must-visit"] },
+    { id: 8, name: "Ramgarh Tal Lakeside", emoji: "🌊", category: "sightseeing", cost: 50,
+      desc: "Walk along the scenic Ramgarh Tal lake. Boating available at ₹50/person.",
+      tags: ["nature", "boating", "family"] },
+    { id: 9, name: "Gorakhpur Zoo", emoji: "🦁", category: "sightseeing", cost: 50,
+      desc: "Gorakhpur Zoological Park — great for families with kids. Entry ~₹50.",
+      tags: ["kids", "family", "nature"] },
+    { id: 10, name: "Railway Museum Gorakhpur", emoji: "🚂", category: "sightseeing", cost: 30,
+      desc: "Fascinating railway museum showcasing India's rail heritage. Entry ~₹30.",
+      tags: ["history", "educational", "kids"] },
+    { id: 11, name: "Veer Bahadur Singh Planetarium", emoji: "🌌", category: "sightseeing", cost: 60,
+      desc: "Explore the universe at Gorakhpur's planetarium. Shows on astronomy and space.",
+      tags: ["educational", "science", "family"] },
+    { id: 12, name: "Regional Science Centre", emoji: "🔬", category: "sightseeing", cost: 40,
+      desc: "Interactive science exhibits and displays — great for curious minds.",
+      tags: ["educational", "kids", "science"] },
+    { id: 13, name: "GD Birla Dharamshala Area", emoji: "🏯", category: "sightseeing", cost: 0,
+      desc: "Heritage building and peaceful surroundings — free to explore and photograph.",
+      tags: ["free", "heritage", "photography"] },
+
+    // ENTERTAINMENT
+    { id: 14, name: "Movie at PVR/Local Cinema", emoji: "🎬", category: "entertainment", cost: 180,
+      desc: "Catch a Hindi film at one of Gorakhpur's cinema halls or multiplexes.",
+      tags: ["movie", "evening", "couple"] },
+    { id: 15, name: "Ramgarh Tal Boating", emoji: "⛵", category: "entertainment", cost: 100,
+      desc: "Pedal boat or row boat on Ramgarh Tal for 30 mins. Fun for all ages.",
+      tags: ["outdoor", "fun", "family"] },
+    { id: 16, name: "Gaming Zone / Arcade", emoji: "🎮", category: "entertainment", cost: 100,
+      desc: "Gaming arcades and play zones available at Golghar or malls.",
+      tags: ["games", "youth", "indoor"] },
+    { id: 17, name: "Evening at City Mall", emoji: "🏬", category: "entertainment", cost: 50,
+      desc: "Stroll through GKP mall, window shop, and enjoy the air-conditioned environment.",
+      tags: ["mall", "casual", "evening"] },
+    { id: 18, name: "Cricket Ground / Sports", emoji: "🏏", category: "entertainment", cost: 30,
+      desc: "Book a cricket ground slot or play at a local sports facility.",
+      tags: ["sports", "outdoor", "group"] },
+
+    // SHOPPING
+    { id: 19, name: "Golghar Market Shopping", emoji: "🛒", category: "shopping", cost: 200,
+      desc: "Explore Gorakhpur's famous Golghar market for clothes, accessories & gifts.",
+      tags: ["market", "clothes", "bargain"] },
+    { id: 20, name: "Local Handicrafts & Souvenirs", emoji: "🎁", category: "shopping", cost: 100,
+      desc: "Buy local Gorakhpur terracotta and bamboo handicrafts as souvenirs.",
+      tags: ["gifts", "local craft", "unique"] },
+    { id: 21, name: "Imlidih Textile Market", emoji: "👕", category: "shopping", cost: 150,
+      desc: "Affordable clothing and fabric shopping at the local textile hub.",
+      tags: ["clothes", "wholesale", "budget"] },
+
+    // TRANSPORT
+    { id: 22, name: "City E-Rickshaw Rides", emoji: "🛺", category: "transport", cost: 60,
+      desc: "Hop on e-rickshaws to commute between multiple spots. Budget ~₹60 for the day.",
+      tags: ["commute", "budget", "local"] },
+    { id: 23, name: "Auto Rickshaw Day Pass", emoji: "🚌", category: "transport", cost: 100,
+      desc: "Hire an auto for 3-4 hours to cover multiple locations comfortably.",
+      tags: ["comfortable", "flexible", "group"] },
+    { id: 24, name: "Rapti Ghat to Zoo Cycle Ride", emoji: "🚲", category: "transport", cost: 40,
+      desc: "Rent a bicycle for a few hours and explore the scenic routes.",
+      tags: ["eco-friendly", "fun", "healthy"] },
+  ];
+
+  const combos = [
+    {
+      name: "🌅 Perfect Family Day",
+      desc: "Gorakhnath Temple → Zoo → Ramgarh Tal Boating → Litti Chokha Lunch → Evening Chaat at Rapti Ghat",
+      items: [7, 9, 15, 3, 1, 22],
+      total: 340
+    },
+    {
+      name: "🎭 Fun-Packed Youth Day",
+      desc: "Movie → Gaming Zone → Momo Snacks → Golghar Shopping → Evening Cafe",
+      items: [14, 16, 4, 19, 2, 22],
+      total: 660
+    },
+    {
+      name: "💑 Couple's Day Out",
+      desc: "Terrace Cafe brunch → Planetarium → Ramgarh Tal walk → Dinner at Dhaba",
+      items: [2, 11, 8, 6, 22],
+      total: 560
+    },
+    {
+      name: "🧒 Kids Special Day",
+      desc: "Railway Museum → Science Centre → Zoo → Arcade Games → Street Food",
+      items: [10, 12, 9, 16, 4, 22],
+      total: 350
+    },
+    {
+      name: "🕌 Heritage & Culture Tour",
+      desc: "Gorakhnath Temple → GD Birla Area → Railway Museum → Planetarium → Litti Chokha + Lassi",
+      items: [7, 13, 10, 11, 3, 5, 22],
+      total: 250
+    },
+    {
+      name: "🛍️ Shopping & Food Spree",
+      desc: "Golghar Market → Imlidih Textiles → Local Handicrafts → Cafe → Street Chaat",
+      items: [19, 21, 20, 2, 1, 22],
+      total: 660
+    },
+  ];
+
   let activeCategory = "all";
 
-  // ── Toast helper ──────────────────────────────────────────────────────────
-  function showToast(msg, isError = false) {
-    const t = document.getElementById("toast");
-    t.textContent = msg;
-    t.style.background = isError ? "#ff6b6b" : "#4ecca3";
-    t.style.color = isError ? "#fff" : "#1a1a2e";
-    t.classList.add("show");
-    setTimeout(() => t.classList.remove("show"), 2500);
-  }
-
-  // ── Render ────────────────────────────────────────────────────────────────
   function renderCards() {
     const grid = document.getElementById("cards-grid");
     const filtered = activeCategory === "all"
       ? activities
       : activities.filter(a => a.category === activeCategory);
 
-    if (filtered.length === 0) {
-      grid.innerHTML = '<p class="loading">No activities found.</p>';
-      return;
-    }
-
     grid.innerHTML = filtered.map(a => {
-      const inPlan    = plan.find(p => p.id === a.id);
+      const inPlan = plan.find(p => p.id === a.id);
       const canAfford = (spent + a.cost) <= BUDGET;
       const btnDisabled = (!canAfford && !inPlan) ? "disabled" : "";
       const selectedClass = inPlan ? "selected" : "";
-      const tags = Array.isArray(a.tags) ? a.tags : [];
       return `
         <div class="card ${selectedClass}" id="card-${a.id}">
           <div class="emoji">${a.emoji}</div>
           <h3>${a.name}</h3>
-          <p>${a.description}</p>
+          <p>${a.desc}</p>
           <div class="cost-badge">${a.cost === 0 ? "FREE" : "₹" + a.cost}</div>
-          <div class="tags">${tags.map(t => `<span class="tag">${t}</span>`).join("")}</div>
+          <div class="tags">${a.tags.map(t => `<span class="tag">${t}</span>`).join("")}</div>
           <button class="add-btn" ${btnDisabled} onclick="toggleActivity(${a.id})">
             ${inPlan ? "✓ Added — Remove" : (canAfford ? "+ Add to Plan" : "Over Budget")}
           </button>
@@ -693,8 +487,8 @@
     document.getElementById("combo-cards").innerHTML = combos.map((c, i) => `
       <div class="combo-card" onclick="applyCombo(${i})">
         <h4>${c.name}</h4>
-        <p>${c.description}</p>
-        <div class="combo-total">Est. Total: ₹${c.total_cost}</div>
+        <p>${c.desc}</p>
+        <div class="combo-total">Est. Total: ₹${c.total}</div>
       </div>`).join("");
   }
 
@@ -719,10 +513,8 @@
     document.getElementById("budget-remaining").textContent =
       rem >= 0 ? `₹${rem} remaining` : `₹${Math.abs(rem)} over budget!`;
     document.getElementById("budget-remaining").style.color = rem >= 0 ? "#4ecca3" : "#ff6b6b";
-    document.getElementById("save-btn").disabled = plan.length === 0;
   }
 
-  // ── Interactions ──────────────────────────────────────────────────────────
   function toggleActivity(id) {
     const activity = activities.find(a => a.id === id);
     const idx = plan.findIndex(p => p.id === id);
@@ -742,8 +534,7 @@
     plan = [];
     spent = 0;
     const combo = combos[i];
-    const ids = Array.isArray(combo.activity_ids) ? combo.activity_ids : [];
-    ids.forEach(id => {
+    combo.items.forEach(id => {
       const a = activities.find(x => x.id === id);
       if (a && spent + a.cost <= BUDGET) {
         plan.push(a);
@@ -762,30 +553,7 @@
     renderPlan();
   }
 
-  async function savePlan() {
-    if (plan.length === 0) return;
-    const btn = document.getElementById("save-btn");
-    btn.disabled = true;
-    try {
-      const res = await fetch("/api/plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "My Plan – " + new Date().toLocaleString("en-IN"),
-          activity_ids: plan.map(p => p.id),
-          total_cost: spent,
-        }),
-      });
-      if (!res.ok) throw new Error("Save failed");
-      showToast("Plan saved successfully!");
-    } catch (e) {
-      showToast("Could not save plan. Try again.", true);
-    } finally {
-      btn.disabled = plan.length === 0;
-    }
-  }
-
-  // ── Tab switching ─────────────────────────────────────────────────────────
+  // Tab switching
   document.getElementById("tabs").addEventListener("click", e => {
     if (!e.target.classList.contains("tab-btn")) return;
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -794,150 +562,10 @@
     renderCards();
   });
 
-  // ── Bootstrap: fetch data from backend API ────────────────────────────────
-  async function init() {
-    try {
-      const [activitiesRes, combosRes] = await Promise.all([
-        fetch("/api/activities"),
-        fetch("/api/combos"),
-      ]);
-      activities = await activitiesRes.json();
-      combos     = await combosRes.json();
-    } catch (e) {
-      document.getElementById("cards-grid").innerHTML =
-        '<p class="loading" style="color:#ff6b6b">Failed to load data. Is the backend running?</p>';
-      return;
-    }
-    renderCards();
-    renderCombos();
-    renderPlan();
-  }
-
-  init();
-
-  // ── V2: Page switching ────────────────────────────────────────────────
-  function switchPage(page, btn) {
-    document.querySelectorAll(".page-section").forEach(s => s.classList.remove("active"));
-    document.querySelectorAll(".page-nav-btn").forEach(b => b.classList.remove("active"));
-    document.getElementById("page-" + page).classList.add("active");
-    btn.classList.add("active");
-    if (page === "healthcare" && !window._hcLoaded) {
-      loadHealthcare();
-      window._hcLoaded = true;
-    }
-  }
-
-  // ── V2: Doctors ───────────────────────────────────────────────────────
-  let allDoctors = [];
-  let allStores  = [];
-  let activeSpec  = "all";
-  let activeStype = "all";
-
-  function renderDoctors(docs) {
-    const grid = document.getElementById("doctors-grid");
-    if (!docs.length) { grid.innerHTML = '<p class="loading">No doctors found.</p>'; return; }
-    grid.innerHTML = docs.map(d => {
-      const isGov = d.type === "government";
-      const feeLabel = isGov ? "₹10–50 (Govt OPD)" : `₹${d.fee_min}–₹${d.fee_max}`;
-      const stars = "★".repeat(Math.round(d.rating)) + "☆".repeat(5 - Math.round(d.rating));
-      return `
-        <div class="doc-card">
-          <div class="doc-header">
-            <h3>👨‍⚕️ ${d.name}</h3>
-            ${isGov ? '<span class="gov-badge">🏛️ Govt</span>' : ''}
-          </div>
-          <span class="spec-badge">${d.specialization}</span>
-          <div class="hospital">🏥 ${d.hospital}</div>
-          <div class="address">📍 ${d.address}</div>
-          <div class="fee-row">
-            <span class="fee">💰 ${feeLabel}</span>
-          </div>
-          <div class="timing">🕐 ${d.available_days} &nbsp;|&nbsp; ${d.timing}</div>
-          <div class="rating">${stars} ${d.rating}</div>
-          <a class="phone-link" href="tel:${d.phone}">📞 ${d.phone}</a>
-        </div>`;
-    }).join("");
-  }
-
-  function renderStores(stores) {
-    const grid = document.getElementById("stores-grid");
-    if (!stores.length) { grid.innerHTML = '<p class="loading">No stores found.</p>'; return; }
-    const typeLabel = {
-      jan_aushadhi: "Jan Aushadhi", generic: "Generic Chain",
-      pharmacy_chain: "Pharmacy Chain", local: "Local Store", online: "Online"
-    };
-    grid.innerHTML = stores.map(s => {
-      const feats = Array.isArray(s.features) ? s.features : [];
-      return `
-        <div class="store-card">
-          <h3>💊 ${s.name}</h3>
-          <span class="type-badge ${s.type}">${typeLabel[s.type] || s.type}</span>
-          <div class="savings">Up to ${s.savings_percent}% cheaper</div>
-          <div class="address">📍 ${s.address}</div>
-          <div class="timing">🕐 ${s.timing}</div>
-          <div class="features">
-            ${feats.map(f => `<span class="feat-tag">${f}</span>`).join("")}
-            ${s.delivers ? '<span class="delivery-badge">🚚 Delivers</span>' : ""}
-          </div>
-          ${s.phone ? `<a class="phone-link" href="tel:${s.phone}" style="border-color:#0ea5e955;color:#7dd3fc;background:#0ea5e915">📞 ${s.phone}</a>` : ""}
-        </div>`;
-    }).join("");
-  }
-
-  async function loadHealthcare() {
-    try {
-      const [docsRes, storesRes, specsRes] = await Promise.all([
-        fetch("/api/doctors"),
-        fetch("/api/medicine-stores"),
-        fetch("/api/doctors/specializations"),
-      ]);
-      allDoctors = await docsRes.json();
-      allStores  = await storesRes.json();
-      const specs = await specsRes.json();
-
-      // Build specialization filter buttons dynamically
-      const bar = document.getElementById("spec-filter-bar");
-      specs.forEach(sp => {
-        const btn = document.createElement("button");
-        btn.className = "hc-filter-btn";
-        btn.dataset.spec = sp;
-        btn.textContent = sp;
-        bar.appendChild(btn);
-      });
-
-      renderDoctors(allDoctors);
-      renderStores(allStores);
-    } catch (e) {
-      document.getElementById("doctors-grid").innerHTML =
-        '<p class="loading" style="color:#ff6b6b">Failed to load healthcare data.</p>';
-    }
-  }
-
-  // Specialization filter
-  document.getElementById("spec-filter-bar").addEventListener("click", e => {
-    if (!e.target.classList.contains("hc-filter-btn")) return;
-    document.querySelectorAll("#spec-filter-bar .hc-filter-btn").forEach(b => b.classList.remove("active"));
-    e.target.classList.add("active");
-    activeSpec = e.target.dataset.spec;
-    const filtered = activeSpec === "all"
-      ? allDoctors
-      : activeSpec === "government"
-        ? allDoctors.filter(d => d.type === "government")
-        : allDoctors.filter(d => d.specialization === activeSpec);
-    renderDoctors(filtered);
-  });
-
-  // Store type filter
-  document.getElementById("store-filter-bar").addEventListener("click", e => {
-    if (!e.target.classList.contains("hc-filter-btn")) return;
-    document.querySelectorAll("#store-filter-bar .hc-filter-btn").forEach(b => b.classList.remove("active"));
-    e.target.classList.add("active");
-    activeStype = e.target.dataset.stype;
-    const filtered = activeStype === "all"
-      ? allStores
-      : allStores.filter(s => s.type === activeStype);
-    renderStores(filtered);
-  });
+  // Init
+  renderCards();
+  renderCombos();
+  renderPlan();
 </script>
 </body>
 </html>

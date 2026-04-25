@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kubevision-backend
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - ENV=production
+      - JWT_SECRET=${JWT_SECRET:-kubevision-change-in-production-secret}
+      # Mount kubeconfig for local Docker Desktop / kind cluster access
+      - KUBECONFIG=/root/.kube/config
+    volumes:
+      # Mount host kubeconfig so backend can reach the cluster
+      - ${KUBECONFIG:-~/.kube/config}:/root/.kube/config:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - kubevision-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kubevision-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - kubevision-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  kubevision-net:
+    driver: bridge
