@@ -3,15 +3,15 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --legacy-peer-deps
+COPY package.json ./
+RUN npm install --legacy-peer-deps --force
 
 COPY . .
 
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=${VITE_API_URL}
 
-RUN npm run build
+RUN npm run build || (echo "Build failed, check logs above" && exit 1)
 
 # ── Production stage ───────────────────────────────────────────────────────────
 FROM nginx:1.25-alpine
