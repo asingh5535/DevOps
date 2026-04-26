@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: torres_ch_backend
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      GIN_MODE: release
+    restart: unless-stopped
+    networks:
+      - torres-net
+
+  frontend:
+    build: ./frontend
+    container_name: torres_ch_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - torres-net
+
+networks:
+  torres-net:
+    driver: bridge
