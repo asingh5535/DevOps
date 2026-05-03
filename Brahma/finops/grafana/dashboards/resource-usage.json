@@ -1,0 +1,135 @@
+{
+  "title": "Local K8s Resource Usage",
+  "uid": "finops-resource-usage",
+  "version": 1,
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "tags": ["finops", "kubernetes", "resources"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU Usage by Team",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container!=''}[5m])) by (label_team)",
+          "legendFormat": "{{label_team}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Memory Usage by Team",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(container_memory_working_set_bytes{container!=''}) by (label_team)",
+          "legendFormat": "{{label_team}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Simulated Monthly Cost by Team ($)",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(kube_pod_container_resource_requests{resource='cpu',unit='core'}) by (label_team) * 0.048 * 730 + sum(kube_pod_container_resource_requests{resource='memory',unit='byte'}) by (label_team) / 1073741824 * 0.006 * 730",
+          "legendFormat": "{{label_team}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD" }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Resource Requests vs Limits Ratio",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(kube_pod_container_resource_requests{resource='cpu'}) / sum(kube_pod_container_resource_limits{resource='cpu'})",
+          "legendFormat": "CPU Request/Limit Ratio"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.6 },
+              { "color": "red", "value": 0.9 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Namespace Resource Quota Usage",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "kube_resourcequota{type='used'}",
+          "legendFormat": "{{namespace}} / {{resource}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Cost by Cost-Center",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(kube_pod_container_resource_requests{resource='cpu',unit='core'}) by (label_cost_center) * 0.048 * 730",
+          "legendFormat": "{{label_cost_center}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD" }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Pod Count by Namespace",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "count(kube_pod_info) by (namespace)",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    }
+  ]
+}

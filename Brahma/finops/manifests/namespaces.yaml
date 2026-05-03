@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    env: local
+    team: sre
+    cost-center: infra001
+    managed-by: helm
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubecost
+  labels:
+    env: local
+    team: platform
+    cost-center: infra001
+    managed-by: helm
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: applications
+  labels:
+    env: local
+    team: platform
+    cost-center: dev001
+    managed-by: manual
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: policy
+  labels:
+    env: local
+    team: platform
+    cost-center: infra001
+    managed-by: helm
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: finops
+  labels:
+    env: local
+    team: platform
+    cost-center: dev001
+    app: finops-ui
+    managed-by: helm

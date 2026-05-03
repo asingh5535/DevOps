@@ -1,0 +1,21 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090
+    isDefault: true
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+    version: 1
+    editable: true
+
+  - name: Kubecost
+    type: prometheus
+    access: proxy
+    url: http://kubecost-cost-analyzer.kubecost.svc.cluster.local:9003
+    isDefault: false
+    version: 1
+    editable: true

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: cost-quota
+  namespace: applications
+  labels:
+    app: finops-policy
+    team: platform
+    env: local
+    cost-center: infra001
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    count/deployments.apps: "10"
+    count/pods: "20"
+    count/services: "10"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: applications
+  labels:
+    app: finops-policy
+    team: platform
+    env: local
+    cost-center: infra001
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 100m
+        memory: 128Mi
+      defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+      max:
+        cpu: "1"
+        memory: 1Gi
+      min:
+        cpu: 10m
+        memory: 16Mi
