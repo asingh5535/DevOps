@@ -69,6 +69,10 @@ registry at runtime (`GET /api/connectors/types`, `GET /api/connectors/:type/met
 | Flink | running jobs, checkpoint failure rate, average job uptime, TaskManager count |
 | MySQL | slow query rate, replication lag, connections used, InnoDB buffer pool hit rate |
 
+Full detail per metric — exact key, unit, typical comparator direction, and
+the underlying query/API/field it's computed from — is in
+[`docs/METRICS.md`](docs/METRICS.md).
+
 ## Quick Start (Docker Compose)
 
 ```bash
