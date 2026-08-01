@@ -149,8 +149,13 @@ func (c *Client) globalStatus(ctx context.Context, keys ...string) (map[string]f
 	return result, rows.Err()
 }
 
+// globalVariable is only ever called with a fixed internal key (never
+// user input): MySQL's SHOW statements aren't preparable with a placeholder
+// for the LIKE pattern (confirmed against MySQL 8.4: "SHOW GLOBAL VARIABLES
+// LIKE ?" fails with a syntax error as a prepared statement), so the key is
+// inlined directly rather than bound as a parameter.
 func (c *Client) globalVariable(ctx context.Context, key string) (float64, error) {
-	row := c.db.QueryRowContext(ctx, "SHOW GLOBAL VARIABLES LIKE ?", key)
+	row := c.db.QueryRowContext(ctx, fmt.Sprintf("SHOW GLOBAL VARIABLES LIKE '%s'", key))
 	var name, value string
 	if err := row.Scan(&name, &value); err != nil {
 		return 0, err
@@ -161,10 +166,16 @@ func (c *Client) globalVariable(ctx context.Context, key string) (float64, error
 
 // replicationLagSeconds returns 0 (not an error) when the server isn't a replica,
 // since "no lag" is the correct signal for a KR measuring a standalone/primary instance.
+// MySQL 8.0.22+ renamed SHOW SLAVE STATUS -> SHOW REPLICA STATUS and
+// Seconds_Behind_Master -> Seconds_Behind_Source; older servers only know the
+// original names, so try the modern form first and fall back on syntax error.
 func (c *Client) replicationLagSeconds(ctx context.Context) (float64, error) {
-	rows, err := c.db.QueryContext(ctx, "SHOW SLAVE STATUS")
+	rows, err := c.db.QueryContext(ctx, "SHOW REPLICA STATUS")
 	if err != nil {
-		return 0, err
+		rows, err = c.db.QueryContext(ctx, "SHOW SLAVE STATUS")
+		if err != nil {
+			return 0, err
+		}
 	}
 	defer rows.Close()
 
@@ -185,7 +196,7 @@ func (c *Client) replicationLagSeconds(ctx context.Context) (float64, error) {
 		return 0, err
 	}
 	for i, col := range cols {
-		if col == "Seconds_Behind_Master" && values[i] != nil {
+		if (col == "Seconds_Behind_Source" || col == "Seconds_Behind_Master") && values[i] != nil {
 			lag, _ := strconv.ParseFloat(string(values[i]), 64)
 			return lag, nil
 		}
