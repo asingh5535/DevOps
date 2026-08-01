@@ -14,20 +14,34 @@ import (
 	"github.com/okr-compass/backend/internal/connector"
 )
 
+// Metric identifiers are suffix-only here because Redis and Dragonfly share
+// one implementation but must NOT share one key namespace — each registered
+// type gets its own "<type>.<suffix>" keys via metricsFor() below, and
+// RunMetric matches on the suffix so either type's keys resolve correctly.
 const (
-	metricHitRate         = "redis.hit_rate_pct"
-	metricUsedMemory      = "redis.used_memory_mb"
-	metricOpsPerSecond    = "redis.ops_per_sec"
-	metricEvictedKeys     = "redis.evicted_keys_total"
-	metricConnectedClient = "redis.connected_clients"
+	metricHitRate         = "hit_rate_pct"
+	metricUsedMemory      = "used_memory_mb"
+	metricOpsPerSecond    = "ops_per_sec"
+	metricEvictedKeys     = "evicted_keys_total"
+	metricConnectedClient = "connected_clients"
 )
 
-var metrics = []connector.MetricSpec{
-	{Key: metricHitRate, Name: "Keyspace hit rate", Description: "Share of lookups served from cache since start", Unit: "%"},
-	{Key: metricUsedMemory, Name: "Used memory", Description: "Memory currently used by the dataset", Unit: "MB"},
-	{Key: metricOpsPerSecond, Name: "Ops per second", Description: "Instantaneous commands processed per second", Unit: "ops/s"},
-	{Key: metricEvictedKeys, Name: "Evicted keys", Description: "Total keys evicted due to maxmemory since start", Unit: "keys"},
-	{Key: metricConnectedClient, Name: "Connected clients", Description: "Number of client connections currently open", Unit: "clients"},
+var metricDefs = []struct {
+	suffix, name, description, unit string
+}{
+	{metricHitRate, "Keyspace hit rate", "Share of lookups served from cache since start", "%"},
+	{metricUsedMemory, "Used memory", "Memory currently used by the dataset", "MB"},
+	{metricOpsPerSecond, "Ops per second", "Instantaneous commands processed per second", "ops/s"},
+	{metricEvictedKeys, "Evicted keys", "Total keys evicted due to maxmemory since start", "keys"},
+	{metricConnectedClient, "Connected clients", "Number of client connections currently open", "clients"},
+}
+
+func metricsFor(t connector.Type) []connector.MetricSpec {
+	specs := make([]connector.MetricSpec, len(metricDefs))
+	for i, d := range metricDefs {
+		specs[i] = connector.MetricSpec{Key: string(t) + "." + d.suffix, Name: d.name, Description: d.description, Unit: d.unit}
+	}
+	return specs
 }
 
 func init() {
@@ -36,12 +50,12 @@ func init() {
 	}
 	connector.Register(
 		connector.TypeInfo{Type: connector.TypeRedis, Label: "Redis", DefaultPort: 6379, PasswordLabel: "Password (optional)", Fields: fields},
-		metrics,
+		metricsFor(connector.TypeRedis),
 		func(cfg connector.ClusterConfig) (connector.Connector, error) { return newClient(cfg, connector.TypeRedis) },
 	)
 	connector.Register(
 		connector.TypeInfo{Type: connector.TypeDragonfly, Label: "Dragonfly", DefaultPort: 6379, PasswordLabel: "Password (optional)", Fields: fields},
-		metrics,
+		metricsFor(connector.TypeDragonfly),
 		func(cfg connector.ClusterConfig) (connector.Connector, error) { return newClient(cfg, connector.TypeDragonfly) },
 	)
 }
@@ -66,7 +80,7 @@ func (c *Client) TestConnection(ctx context.Context) error {
 }
 
 func (c *Client) ListMetrics(ctx context.Context) ([]connector.MetricSpec, error) {
-	return metrics, nil
+	return metricsFor(c.connType), nil
 }
 
 func (c *Client) RunMetric(ctx context.Context, metricKey string) (connector.MetricValue, error) {
@@ -76,7 +90,8 @@ func (c *Client) RunMetric(ctx context.Context, metricKey string) (connector.Met
 	}
 	fields := parseInfo(info)
 
-	switch metricKey {
+	suffix := strings.TrimPrefix(metricKey, string(c.connType)+".")
+	switch suffix {
 	case metricHitRate:
 		hits := fields["keyspace_hits"]
 		misses := fields["keyspace_misses"]
