@@ -25,11 +25,18 @@ const (
 	metricCompactionScore = "doris.compaction_score_max"
 )
 
+// doris_fe_query_latency_ms is a Prometheus summary (verified against a real
+// Doris 2.1 FE), exposed as multiple lines with a "quantile" label
+// (0.75/0.95/0.98/0.99/0.999) rather than one gauge value — the lookup key
+// must include the label to get p99 specifically, or scraping would
+// silently return whichever quantile line happens to appear first in the
+// response. doris_fe_max_tablet_compaction_score (not
+// doris_fe_max_compaction_score) is the real gauge name for compaction score.
 var metricRawNames = map[string]string{
-	metricQueryLatency:    "doris_fe_query_latency_ms",
+	metricQueryLatency:    `doris_fe_query_latency_ms{quantile="0.99"}`,
 	metricConnectionTotal: "doris_fe_connection_total",
 	metricTabletNum:       "doris_fe_tablet_num",
-	metricCompactionScore: "doris_fe_max_compaction_score",
+	metricCompactionScore: "doris_fe_max_tablet_compaction_score",
 }
 
 var metrics = []connector.MetricSpec{
@@ -97,8 +104,11 @@ func (c *Client) RunMetric(ctx context.Context, metricKey string) (connector.Met
 	return connector.MetricValue{Value: value}, nil
 }
 
-// scrape does a minimal Prometheus text-exposition parse: "name{labels} value" or "name value",
-// keeping the first sample seen per metric name (good enough for FE-scoped gauges/counters).
+// scrape does a minimal Prometheus text-exposition parse: "name{labels} value" or "name value".
+// Each sample is indexed twice: once under its exact "name{labels}" text (so
+// callers can pin a specific label combination, e.g. a quantile), and once
+// under the bare name keeping the first occurrence seen (good enough for
+// simple FE-scoped gauges/counters that carry no meaningful labels here).
 func (c *Client) scrape(ctx context.Context) (map[string]float64, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL, nil)
 	if err != nil {
@@ -124,16 +134,19 @@ func (c *Client) scrape(ctx context.Context) (map[string]float64, error) {
 		if len(fields) < 2 {
 			continue
 		}
-		name := fields[0]
-		if idx := strings.IndexByte(name, '{'); idx != -1 {
-			name = name[:idx]
-		}
+		key := fields[0]
 		value, err := strconv.ParseFloat(fields[len(fields)-1], 64)
 		if err != nil {
 			continue
 		}
-		if _, exists := samples[name]; !exists {
-			samples[name] = value
+		samples[key] = value // exact "name{labels}" — later duplicate lines (rare) win, fine for our purposes
+
+		bareName := key
+		if idx := strings.IndexByte(bareName, '{'); idx != -1 {
+			bareName = bareName[:idx]
+		}
+		if _, exists := samples[bareName]; !exists {
+			samples[bareName] = value
 		}
 	}
 	return samples, scanner.Err()
