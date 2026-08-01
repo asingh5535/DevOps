@@ -6,6 +6,21 @@ ClickHouse, Apache Doris, Dragonfly, Redis, Kubernetes, Flink, and MySQL — ins
 of being updated by hand. Register a cluster once, pick a built-in metric, set a
 baseline/target, and progress is recalculated automatically on a schedule.
 
+## Screenshots
+
+| | |
+|---|---|
+| **Dashboard** — org-wide progress rollup by team/quarter, at-risk Key Results | **Objectives** — grouped by team/quarter, each with average progress |
+| ![Dashboard](docs/screenshots/dashboard.jpg) | ![Objectives](docs/screenshots/objectives.jpg) |
+| **Objective detail** — per-Key-Result progress bar, current vs. target, trend sparkline | **Clusters** — registered connections with a one-click connectivity test |
+| ![Objective detail](docs/screenshots/objective-detail.jpg) | ![Clusters](docs/screenshots/clusters.jpg) |
+
+<details>
+<summary>Login</summary>
+
+![Login](docs/screenshots/login.jpg)
+</details>
+
 ## Architecture
 
 ```
