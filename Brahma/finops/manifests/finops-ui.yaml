@@ -1,0 +1,181 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: finops-backend
+  namespace: finops
+  labels:
+    app: finops-backend
+    team: platform
+    env: local
+    cost-center: dev001
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: finops-reader
+  labels:
+    app: finops-backend
+    team: platform
+    env: local
+    cost-center: dev001
+rules:
+  - apiGroups: [""]
+    resources: [pods, namespaces, resourcequotas, limitranges, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: ["apps"]
+    resources: [deployments, statefulsets, daemonsets, replicasets]
+    verbs: [get, list, watch]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: [pods, nodes]
+    verbs: [get, list]
+  - apiGroups: ["constraints.gatekeeper.sh"]
+    resources: ["*"]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: finops-reader-binding
+  labels:
+    app: finops-backend
+    team: platform
+    env: local
+    cost-center: dev001
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: finops-reader
+subjects:
+  - kind: ServiceAccount
+    name: finops-backend
+    namespace: finops
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finops-backend
+  namespace: finops
+  labels:
+    app: finops-backend
+    team: platform
+    env: local
+    cost-center: dev001
+    version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finops-backend
+  template:
+    metadata:
+      labels:
+        app: finops-backend
+        team: platform
+        env: local
+        cost-center: dev001
+        version: "1.0.0"
+    spec:
+      serviceAccountName: finops-backend
+      containers:
+        - name: backend
+          image: finops-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: GIN_MODE
+              value: release
+            - name: PORT
+              value: "8080"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: finops-backend
+  namespace: finops
+  labels:
+    app: finops-backend
+    team: platform
+    env: local
+    cost-center: dev001
+spec:
+  selector:
+    app: finops-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finops-frontend
+  namespace: finops
+  labels:
+    app: finops-frontend
+    team: platform
+    env: local
+    cost-center: dev001
+    version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finops-frontend
+  template:
+    metadata:
+      labels:
+        app: finops-frontend
+        team: platform
+        env: local
+        cost-center: dev001
+        version: "1.0.0"
+    spec:
+      containers:
+        - name: frontend
+          image: finops-frontend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: finops-frontend
+  namespace: finops
+  labels:
+    app: finops-frontend
+    team: platform
+    env: local
+    cost-center: dev001
+spec:
+  selector:
+    app: finops-frontend
+  ports:
+    - port: 80
+      targetPort: 80

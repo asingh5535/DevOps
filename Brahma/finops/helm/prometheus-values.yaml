@@ -1,0 +1,67 @@
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    additionalScrapeConfigs:
+      - job_name: kubecost
+        honor_labels: true
+        scrape_interval: 1m
+        scrape_timeout: 10s
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - kubecost-cost-analyzer.kubecost:9003
+
+grafana:
+  enabled: true
+  adminPassword: "localadmin123"
+  service:
+    type: ClusterIP
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+    datasources:
+      enabled: true
+  additionalDataSources:
+    - name: Kubecost
+      type: prometheus
+      url: http://kubecost-cost-analyzer.kubecost:9003/metrics
+      access: proxy
+      isDefault: false
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+kube-state-metrics:
+  metricLabelsAllowlist:
+    - pods=[app,team,env,cost-center,version]
+    - deployments=[app,team,env,cost-center]
+    - namespaces=[env,team,cost-center,managed-by]

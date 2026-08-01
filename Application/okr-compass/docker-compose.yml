@@ -1,0 +1,55 @@
+services:
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: okr-compass-backend
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - DB_PATH=/data/okr.db
+      - JWT_SECRET=${JWT_SECRET:-okr-compass-change-in-production-secret}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-insecure-32-byte-key-change!}
+      - EVAL_INTERVAL_MINUTES=${EVAL_INTERVAL_MINUTES:-5}
+    volumes:
+      - okr-compass-data:/data
+    ports:
+      - "8095:8080"
+    networks:
+      - okr-compass-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: okr-compass-frontend
+    restart: unless-stopped
+    ports:
+      - "3010:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - okr-compass-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  okr-compass-net:
+    driver: bridge
+
+volumes:
+  okr-compass-data:

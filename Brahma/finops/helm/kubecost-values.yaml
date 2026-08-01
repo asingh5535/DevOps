@@ -1,0 +1,47 @@
+global:
+  grafana:
+    enabled: false
+    proxy: false
+
+prometheus:
+  enabled: false
+  fqdn: http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090
+
+reporting:
+  productAnalytics: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+costModel:
+  labelMappingConfigs:
+    enabled: true
+    owner_label: "team"
+    team_label: "team"
+    department_label: "cost-center"
+    product_label: "app"
+    environment_label: "env"
+
+  # Local cluster — simulate on-prem pricing
+  defaultModelPricing:
+    enabled: true
+    CPU: "0.048"
+    spotCPU: "0.0144"
+    RAM: "0.006"
+    spotRAM: "0.0018"
+    GPU: "0.95"
+    storage: "0.00005"
+
+networkCosts:
+  enabled: false
+
+persistentVolumes:
+  enabled: true
+
+forecasting:
+  enabled: false

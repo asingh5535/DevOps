@@ -1,0 +1,27 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredLabels
+metadata:
+  name: require-cost-labels-local
+  labels:
+    app: gatekeeper-policy
+    team: platform
+    env: local
+    cost-center: infra001
+spec:
+  enforcementAction: warn
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment", "StatefulSet", "DaemonSet"]
+    namespaces:
+      - applications
+    excludedNamespaces:
+      - kube-system
+      - kube-public
+      - kube-node-lease
+  parameters:
+    labels:
+      - "app"
+      - "team"
+      - "env"
+      - "cost-center"
