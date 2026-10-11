@@ -1,0 +1,30 @@
+# Vachi configuration. Copy to vachi.yaml and edit.
+# Secrets never go in this file: write ${VAR_NAME} and put the value in .env.
+
+providers:
+  # Free models running on your own machine. Install Ollama, then `ollama pull llama3.2`.
+  - id: local
+    type: ollama
+    base_url: http://localhost:11434
+
+  # Claude models. Needs ANTHROPIC_API_KEY in .env.
+  - id: anthropic
+    type: anthropic
+    api_key: ${ANTHROPIC_API_KEY}
+    # effort: medium            # low | medium | high | xhigh | max
+    # server_fallbacks: true    # retry on a substitute model if a request is declined
+
+  # OpenAI, or any OpenAI-compatible server (vLLM, llama.cpp, LM Studio, OpenRouter, Groq...).
+  # Needs OPENAI_API_KEY in .env.
+  - id: openai
+    type: openai
+    api_key: ${OPENAI_API_KEY}
+    # base_url: http://localhost:8000/v1   # uncomment for a self-hosted server
+
+models:
+  default: local/llama3.2
+
+system_prompt: >
+  You are Vachi, a friendly, honest and concise assistant.
+  Answer in the same language the user writes in (English, Hindi or Hinglish).
+  If you aren't sure about something, say so instead of guessing.

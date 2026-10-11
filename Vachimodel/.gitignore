@@ -1,0 +1,21 @@
+# Secrets and local config
+.env
+vachi.yaml
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+
+# Models, data and indexes (large files never go in git)
+models/
+checkpoints/
+data/raw/
+*.gguf
+*.safetensors
+*.bin
+store/
