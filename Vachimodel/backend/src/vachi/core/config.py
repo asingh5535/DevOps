@@ -1,7 +1,8 @@
 """Loading vachi.yaml.
 
 Secrets never live in the YAML file. Write `${ENV_VAR}` in the YAML and put the value
-in the environment or in a `.env` file next to the YAML. Variables are substituted
+in the environment or in a `.env` file next to the YAML. `${ENV_VAR:-default}` uses
+`default` when the variable isn't set. Variables are substituted
 only when a provider is actually used, so a missing key for a provider you aren't
 using doesn't stop the app from starting.
 """
@@ -19,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from vachi.core.errors import ConfigError
 
 CONFIG_NAMES = ("vachi.yaml", "vachi.example.yaml")
-_ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
 
 
 class ProviderEntry(BaseModel):
@@ -106,8 +107,10 @@ def substitute_env(value: Any, *, context: str) -> Any:
     if isinstance(value, str):
 
         def replace(match: re.Match[str]) -> str:
-            name = match.group(1)
+            name, default = match.group(1), match.group(2)
             env_value = os.environ.get(name)
+            if not env_value and default is not None:
+                return default
             if not env_value:
                 raise ConfigError(
                     f"{context} needs the environment variable {name}, but it isn't set. "

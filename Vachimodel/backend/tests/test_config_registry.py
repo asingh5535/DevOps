@@ -121,3 +121,11 @@ def test_example_config_is_valid():
     registry = ProviderRegistry(config)
     provider, _ = registry.resolve(None)
     assert provider.id == "local"
+
+
+def test_substitute_env_default(monkeypatch):
+    monkeypatch.delenv("UNSET_VAR", raising=False)
+    monkeypatch.setenv("SET_VAR", "real")
+    assert substitute_env("${UNSET_VAR:-http://localhost:11434}", context="t") == "http://localhost:11434"
+    assert substitute_env("${SET_VAR:-fallback}", context="t") == "real"
+    assert substitute_env("${UNSET_VAR:-}", context="t") == ""

@@ -63,6 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
     models = sub.add_parser("models", help="list models from configured providers")
     models.add_argument("--provider", "-p", help="only this provider id")
     models.set_defaults(handler=cmd_models)
+
+    serve = sub.add_parser("serve", help="run the web API server")
+    serve.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 inside Docker")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.set_defaults(handler=cmd_serve)
     return parser
 
 
@@ -208,6 +213,15 @@ def cmd_models(args: argparse.Namespace, config: VachiConfig, registry: Provider
     finally:
         session.close()
     return 1 if failed else 0
+
+
+def cmd_serve(args: argparse.Namespace, config: VachiConfig, registry: ProviderRegistry) -> int:
+    import uvicorn
+
+    from vachi.api.app import create_app
+
+    uvicorn.run(create_app(config, registry), host=args.host, port=args.port, proxy_headers=True)
+    return 0
 
 
 if __name__ == "__main__":

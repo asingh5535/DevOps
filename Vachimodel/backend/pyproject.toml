@@ -4,11 +4,16 @@ version = "0.1.0"
 description = "Vachi: a plug-and-play AI assistant platform"
 requires-python = ">=3.12"
 dependencies = [
+    "aiosqlite>=0.22.1",
     "anthropic>=1.13.0",
+    "asyncpg>=0.32.0",
+    "fastapi>=0.143.0",
     "httpx>=0.28.1",
     "openai>=3.28.0",
     "pydantic>=2.14.0",
     "pyyaml>=6.0.3",
+    "sqlalchemy[asyncio]>=2.1.4",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [project.scripts]

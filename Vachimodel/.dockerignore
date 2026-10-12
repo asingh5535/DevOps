@@ -1,0 +1,7 @@
+# Build context for nginx/Dockerfile (the web UI). Keep secrets and heavy folders out.
+.env
+vachi.yaml
+backend
+frontend/node_modules
+frontend/dist
+**/.DS_Store
