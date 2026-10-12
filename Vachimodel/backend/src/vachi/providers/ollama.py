@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator
 
 import httpx
 from pydantic import BaseModel
 
-from vachi.core.errors import ModelNotFoundError, ProviderError, ProviderUnavailableError
+from vachi.core.errors import (
+    ModelNotFoundError,
+    ProviderAuthError,
+    ProviderError,
+    ProviderUnavailableError,
+    RateLimitError,
+)
 from vachi.core.interfaces import ModelProvider
 from vachi.core.messages import ChatChunk, ChatRequest, ModelInfo, Usage
 
@@ -25,6 +32,7 @@ class OllamaProvider(ModelProvider):
     def __init__(self, provider_id: str, config: OllamaConfig, transport: httpx.AsyncBaseTransport | None = None):
         super().__init__(provider_id, config)
         self.config: OllamaConfig = config
+        self._show_limit = asyncio.Semaphore(4)
         self._client = httpx.AsyncClient(
             base_url=config.base_url.rstrip("/"),
             timeout=httpx.Timeout(config.timeout_seconds, connect=5.0),
@@ -37,10 +45,25 @@ class OllamaProvider(ModelProvider):
         except httpx.TransportError as exc:
             raise self._unavailable(exc) from exc
         self._raise_for_status(response, model=None)
+        names = [m["name"] for m in response.json().get("models", [])]
+        details = await asyncio.gather(*(self._show(name) for name in names))
         return [
-            ModelInfo(id=m["name"], provider=self.id, display_name=m.get("name"), extra={"size": m.get("size")})
-            for m in response.json().get("models", [])
+            ModelInfo(id=name, provider=self.id, display_name=name, context_window=ctx, capabilities=caps)
+            for name, (ctx, caps) in zip(names, details, strict=True)
         ]
+
+    async def _show(self, name: str) -> tuple[int | None, list[str]]:
+        """Context length and capabilities of one model. Best effort: unknown on any failure."""
+        async with self._show_limit:
+            try:
+                response = await self._client.post("/api/show", json={"model": name}, timeout=10)
+                data = response.json() if response.status_code == 200 else {}
+            except (httpx.HTTPError, ValueError):
+                return None, []
+        context = next((v for k, v in (data.get("model_info") or {}).items() if k.endswith(".context_length")), None)
+        # Ollama reports e.g. ["completion", "vision", "tools", "thinking"]; "completion" is implied.
+        capabilities = [c for c in data.get("capabilities") or [] if c != "completion"]
+        return (context if isinstance(context, int) else None), capabilities
 
     async def chat(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
         messages = [{"role": m.role, "content": m.content} for m in request.messages]
@@ -104,8 +127,12 @@ class OllamaProvider(ModelProvider):
             detail = response.json().get("error", response.text)
         except ValueError:
             detail = response.text
+        if response.status_code in (401, 403):  # e.g. Ollama behind a proxy that checks keys
+            raise ProviderAuthError(self.id, f"Access denied (HTTP {response.status_code}): {detail}")
+        if response.status_code == 429:
+            raise RateLimitError(self.id, f"Too many requests: {detail}")
         if response.status_code == 404 and model:
             raise ModelNotFoundError(
                 self.id, f"Model '{model}' isn't downloaded. Run `ollama pull {model}` first. ({detail})"
             )
-        raise ProviderError(self.id, f"HTTP {response.status_code}: {detail}")
+        raise ProviderError(self.id, f"HTTP {response.status_code}: {detail}", retryable=response.status_code >= 500)

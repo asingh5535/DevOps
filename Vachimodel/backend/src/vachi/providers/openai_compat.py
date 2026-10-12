@@ -96,7 +96,7 @@ class OpenAICompatProvider(ModelProvider):
         if isinstance(exc, openai.RateLimitError):
             return RateLimitError(self.id, "Rate limited or out of quota. Wait a bit or check your billing.")
         if isinstance(exc, openai.APIStatusError):
-            return ProviderError(self.id, f"HTTP {exc.status_code}: {exc.message}")
+            return ProviderError(self.id, f"HTTP {exc.status_code}: {exc.message}", retryable=exc.status_code >= 500)
         if isinstance(exc, openai.APIConnectionError):
             where = self.config.base_url or "the OpenAI API"
             return ProviderUnavailableError(self.id, f"Can't reach {where}. Is the server running?")

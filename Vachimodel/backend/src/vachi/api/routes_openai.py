@@ -132,12 +132,14 @@ async def list_models(request: Request) -> dict:
 
 @router.post("/chat/completions", response_model=None)
 async def chat_completions(request: Request, body: ChatCompletionRequest) -> JSONResponse | StreamingResponse:
-    registry: ProviderRegistry = request.app.state.registry
-    provider, model_name = registry.resolve(body.model)
-    chunks = provider.chat(body.to_chat_request(model_name))
+    """Answers come through the router, so fallbacks, retries, budgets and usage tracking apply.
+    The response's `model` is the model that actually answered."""
+    chunks = request.app.state.router.stream(body.model, body.to_chat_request(""), source="api")
 
-    # Read the first chunk before answering, so provider errors (server down, bad key,
-    # unknown model) become a normal HTTP error instead of a broken stream.
+    # Wait for the router to commit to a model before answering, so failures (server down,
+    # bad key, unknown model, budget) become a normal HTTP error instead of a broken stream.
+    route = await anext(chunks)
+    answered_by = route.model or body.model
     first = await anext(chunks, None)
     completion_id = f"chatcmpl-{uuid.uuid4().hex}"
     created = int(time.time())
@@ -145,7 +147,7 @@ async def chat_completions(request: Request, body: ChatCompletionRequest) -> JSO
     if body.stream:
         include_usage = bool(body.stream_options and body.stream_options.include_usage)
         return StreamingResponse(
-            stream_completion(first, chunks, completion_id, created, body.model, include_usage),
+            stream_completion(first, chunks, completion_id, created, answered_by, include_usage),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -164,7 +166,7 @@ async def chat_completions(request: Request, body: ChatCompletionRequest) -> JSO
             "id": completion_id,
             "object": "chat.completion",
             "created": created,
-            "model": body.model,
+            "model": answered_by,
             "choices": [
                 {
                     "index": 0,

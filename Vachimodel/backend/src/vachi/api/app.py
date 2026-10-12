@@ -11,16 +11,21 @@ from sqlalchemy import text
 
 from vachi import __version__
 from vachi.api import routes_chat, routes_openai
+from vachi.chat.router import Router
 from vachi.chat.service import ChatService, ConflictError, NotFoundError
+from vachi.chat.usage import UsageStore
 from vachi.core.config import VachiConfig
 from vachi.core.errors import (
+    BudgetExceededError,
     ConfigError,
     ModelNotFoundError,
     ProviderAuthError,
     ProviderUnavailableError,
     RateLimitError,
+    RoutingError,
     VachiError,
 )
+from vachi.core.pricing import Pricing
 from vachi.core.registry import ProviderRegistry
 from vachi.db.session import create_tables, make_engine, make_sessionmaker
 
@@ -33,6 +38,7 @@ STATUS_CODES: list[tuple[type[VachiError], int]] = [
     (ModelNotFoundError, 404),
     (ConflictError, 409),
     (ConfigError, 400),
+    (BudgetExceededError, 402),
     (RateLimitError, 429),
     (ProviderUnavailableError, 503),
     (ProviderAuthError, 502),
@@ -41,6 +47,8 @@ STATUS_CODES: list[tuple[type[VachiError], int]] = [
 
 
 def status_for(exc: VachiError) -> int:
+    if isinstance(exc, RoutingError):  # every model failed: report it like the requested model's failure
+        return status_for(exc.primary)
     return next(code for cls, code in STATUS_CODES if isinstance(exc, cls))
 
 
@@ -53,8 +61,11 @@ def create_app(
     async def lifespan(app: FastAPI):
         engine = make_engine(database_url)
         await create_tables(engine)
+        sessionmaker = make_sessionmaker(engine)
         app.state.engine = engine
-        app.state.chat = ChatService(config, registry, make_sessionmaker(engine))
+        app.state.usage = UsageStore(sessionmaker, Pricing(config.pricing), config.budget)
+        app.state.router = Router(config, registry, app.state.usage)
+        app.state.chat = ChatService(config, registry, sessionmaker, app.state.router)
         yield
         await app.state.chat.shutdown()
         await registry.aclose()

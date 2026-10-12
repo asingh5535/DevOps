@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 DEFAULT_TITLE = "New chat"
@@ -55,3 +55,21 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+class UsageEvent(Base):
+    """One call to a model: chat answers, chat titles and /v1 requests. Used for cost tracking and budgets."""
+
+    __tablename__ = "usage_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    model: Mapped[str] = mapped_column(String(200), index=True)  # "provider/model" that answered
+    source: Mapped[str] = mapped_column(String(20))  # "chat" | "title" | "api"
+    status: Mapped[str] = mapped_column(String(20))  # "ok" | "stopped" | "error"
+    conversation_id: Mapped[str | None] = mapped_column(String(32))
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Float)  # None when the price isn't configured
+    latency_ms: Mapped[int | None] = mapped_column(Integer)  # time to the first piece of the answer
+    fallback_from: Mapped[str | None] = mapped_column(String(200))  # the model that was asked for, if different

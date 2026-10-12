@@ -24,11 +24,18 @@ export interface Conversation extends ConversationSummary {
   messages: ChatMessage[]
 }
 
+export interface Price {
+  input: number // US dollars per 1M tokens
+  output: number
+}
+
 export interface ModelEntry {
   id: string
   provider: string
   name: string
   context_window: number | null
+  capabilities: string[]
+  price: Price | null
 }
 
 export interface ProviderStatus {
@@ -40,6 +47,7 @@ export interface ProviderStatus {
 
 export interface ModelsResponse {
   default: string | null
+  fallback: string[]
   models: ModelEntry[]
   providers: ProviderStatus[]
 }
@@ -52,11 +60,41 @@ export interface GenerationSettings {
 
 export type StreamEvent =
   | { type: 'start'; user_message: ChatMessage | null; model: string }
+  | { type: 'model'; model: string; fallback_reason: string | null }
   | { type: 'delta'; text: string }
   | { type: 'notice'; text: string }
   | { type: 'done'; message: ChatMessage | null }
   | { type: 'title'; title: string }
   | { type: 'error'; message: string }
+
+export interface ModelUsage {
+  model: string
+  calls: number
+  errors: number
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+  unpriced_calls: number
+  fallback_calls: number
+  avg_first_token_ms: number | null
+  price: Price | null
+}
+
+export interface DayUsage {
+  date: string
+  calls: number
+  tokens: number
+  cost_usd: number
+}
+
+export interface UsageSummary {
+  days: number
+  today_usd: number
+  month_usd: number
+  budget: { daily_usd: number | null; monthly_usd: number | null }
+  by_model: ModelUsage[]
+  by_day: DayUsage[]
+}
 
 export class ApiError extends Error {
   status: number
@@ -99,6 +137,7 @@ export const api = {
     request<ConversationSummary>(`/api/conversations/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
   deleteConversation: (id: string) => request<void>(`/api/conversations/${id}`, { method: 'DELETE' }),
   stop: (id: string) => request<{ stopped: boolean }>(`/api/conversations/${id}/stop`, { method: 'POST' }),
+  usage: (days = 30) => request<UsageSummary>(`/api/usage?days=${days}`),
   exportUrl: (id: string, format: 'markdown' | 'json') => `/api/conversations/${id}/export?format=${format}`,
 
   /** Send (or edit) a message and stream the answer. */

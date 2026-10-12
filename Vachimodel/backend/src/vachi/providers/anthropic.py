@@ -32,6 +32,17 @@ class AnthropicConfig(BaseModel):
     server_fallbacks: bool = True
 
 
+# Names Vachi uses for capabilities the Models API reports.
+CAPABILITY_NAMES = {"image_input": "vision", "pdf_input": "pdf", "thinking": "thinking", "structured_outputs": "json"}
+
+
+def capabilities(model: Any) -> list[str]:
+    caps = getattr(model, "capabilities", None)
+    if caps is None:
+        return []
+    return [name for field, name in CAPABILITY_NAMES.items() if getattr(getattr(caps, field, None), "supported", False)]
+
+
 class AnthropicProvider(ModelProvider):
     type_name = "anthropic"
     Config = AnthropicConfig
@@ -52,6 +63,7 @@ class AnthropicProvider(ModelProvider):
                     provider=self.id,
                     display_name=m.display_name,
                     context_window=getattr(m, "max_input_tokens", None),
+                    capabilities=capabilities(m),
                 )
                 async for m in self._client.models.list()
             ]
@@ -108,7 +120,7 @@ class AnthropicProvider(ModelProvider):
         if isinstance(exc, anthropic.RateLimitError):
             return RateLimitError(self.id, "Rate limited by Anthropic. Wait a bit and try again.")
         if isinstance(exc, anthropic.APIStatusError):
-            return ProviderError(self.id, f"HTTP {exc.status_code}: {exc.message}")
+            return ProviderError(self.id, f"HTTP {exc.status_code}: {exc.message}", retryable=exc.status_code >= 500)
         if isinstance(exc, anthropic.APIConnectionError):
             return ProviderUnavailableError(self.id, "Can't reach the Anthropic API. Check your internet connection.")
         return ProviderError(self.id, str(exc))

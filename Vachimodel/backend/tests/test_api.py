@@ -62,6 +62,7 @@ async def app(tmp_path):
             "providers": [{"id": "fake", "type": "fake"}],
             "models": {"default": "fake/echo"},
             "system_prompt": "You are Vachi.",
+            "routing": {"backoff_seconds": 0},
         }
     )
     registry = ProviderRegistry(config, {"fake": FakeProvider})
@@ -118,13 +119,14 @@ async def test_chat_streams_saves_and_titles(client, app):
     events = await send(client, cid, "How do Docker volumes work?")
 
     names = [name for name, _ in events]
-    assert names == ["start", "delta", "delta", "done", "title"]
+    assert names == ["start", "model", "delta", "delta", "done", "title"]
+    assert events[1][1] == {"model": "fake/echo", "fallback_reason": None}
     assert events[0][1]["user_message"]["content"] == "How do Docker volumes work?"
     assert events[0][1]["model"] == "fake/echo"
     assert "".join(d["text"] for n, d in events if n == "delta") == "echo: How do Docker volumes work?"
-    done = events[3][1]["message"]
+    done = events[4][1]["message"]
     assert done["role"] == "assistant" and done["model"] == "fake/echo" and done["output_tokens"] == 2
-    assert events[4][1]["title"] == "Docker Volumes Explained"
+    assert events[5][1]["title"] == "Docker Volumes Explained"
 
     conversation = (await client.get(f"/api/conversations/{cid}")).json()
     assert conversation["title"] == "Docker Volumes Explained"
@@ -191,6 +193,7 @@ async def test_stop_saves_partial_answer(app):
     cid = (await service.create_conversation(model="fake/slow"))["id"]
     events = await service.start_turn(cid, content="tell me a story")
     assert (await anext(events))[0] == "start"
+    assert (await anext(events))[0] == "model"
     assert (await anext(events)) == ("delta", {"text": "thinking about it "})
 
     assert await service.stop(cid) is True
@@ -319,3 +322,76 @@ async def test_openai_api_key_required_when_configured(app, monkeypatch):
         assert denied.status_code == 401 and denied.json()["error"]["type"] == "authentication_error"
         allowed = await c.get("/v1/models", headers={"Authorization": "Bearer secret-key"})
         assert allowed.status_code == 200
+
+
+# ---------------------------------------------------------------------- Phase 3: routing and usage
+
+
+@pytest.fixture
+async def fallback_app(tmp_path):
+    config = VachiConfig.model_validate(
+        {
+            "providers": [{"id": "fake", "type": "fake"}],
+            "models": {"default": "fake/broken", "fallback": ["fake/echo"]},
+            "routing": {"backoff_seconds": 0},
+            "pricing": {"fake/echo": {"input": 1.0, "output": 2.0}},
+        }
+    )
+    registry = ProviderRegistry(config, {"fake": FakeProvider})
+    app = create_app(config, registry, database_url=f"sqlite+aiosqlite:///{tmp_path}/fallback.db")
+    async with app.router.lifespan_context(app):
+        yield app
+
+
+async def test_fallback_is_announced_and_saved_with_the_real_model(fallback_app):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=fallback_app), base_url="http://test") as c:
+        cid = (await c.post("/api/conversations", json={})).json()["id"]
+        events = await send(c, cid, "hello")
+        model_event = dict(events)["model"]
+        assert model_event["model"] == "fake/echo"
+        assert "fake/broken couldn't answer" in model_event["fallback_reason"]
+        assert any(n == "notice" and "Answered by fake/echo" in d["text"] for n, d in events)
+        assert dict(events)["done"]["message"]["model"] == "fake/echo"
+
+        conversation = (await c.get(f"/api/conversations/{cid}")).json()
+        assert conversation["model"] == "fake/broken"  # the user's choice is kept for next time
+
+        usage = (await c.get("/api/usage")).json()
+        rows = {r["model"]: r for r in usage["by_model"]}
+        # answer: 3 in x $1/M + 2 out x $2/M; plus the title call on the same model
+        assert rows["fake/echo"]["fallback_calls"] == 1
+        assert rows["fake/echo"]["cost_usd"] == pytest.approx(7e-6)
+        assert rows["fake/broken"]["errors"] >= 1
+        assert usage["by_day"][0]["calls"] >= 2
+
+        models = (await c.get("/api/models")).json()
+        assert models["fallback"] == ["fake/echo"]
+        echo = next(m for m in models["models"] if m["id"] == "fake/echo")
+        assert echo["price"] == {"input": 1.0, "output": 2.0} and echo["capabilities"] == []
+
+
+async def test_openai_api_reports_the_model_that_answered(fallback_app):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=fallback_app), base_url="http://test") as c:
+        response = await c.post(
+            "/v1/chat/completions", json={"model": "fake/broken", "messages": [{"role": "user", "content": "x"}]}
+        )
+        assert response.status_code == 200
+        assert response.json()["model"] == "fake/echo"
+
+
+async def test_openai_api_budget_error(tmp_path):
+    config = VachiConfig.model_validate(
+        {
+            "providers": [{"id": "fake", "type": "fake"}],
+            "pricing": {"fake/*": {"input": 1000.0, "output": 1000.0}},
+            "budget": {"daily_usd": 0.001},
+        }
+    )
+    app = create_app(config, ProviderRegistry(config, {"fake": FakeProvider}), f"sqlite+aiosqlite:///{tmp_path}/b.db")
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            body = {"model": "fake/echo", "messages": [{"role": "user", "content": "x"}]}
+            assert (await c.post("/v1/chat/completions", json=body)).status_code == 200  # spends $0.005
+            over = await c.post("/v1/chat/completions", json=body)
+            assert over.status_code == 402
+            assert "Daily budget" in over.json()["error"]["message"]

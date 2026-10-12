@@ -8,7 +8,7 @@ import time
 from collections.abc import AsyncIterator
 from typing import Literal
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -82,14 +82,18 @@ async def list_models(request: Request, refresh: bool = False) -> dict:
             return {"id": provider_id, "ok": False, "error": str(exc), "models": []}
 
     results = await asyncio.gather(*(one(pid) for pid in registry.provider_ids))
+    pricing = request.app.state.usage.pricing
     data = {
         "default": request.app.state.config.models.default,
+        "fallback": request.app.state.config.models.fallback,
         "models": [
             {
                 "id": m.full_id,
                 "provider": m.provider,
                 "name": m.display_name or m.id,
                 "context_window": m.context_window,
+                "capabilities": m.capabilities,
+                "price": price.model_dump() if (price := pricing.price(m.full_id)) else None,
             }
             for r in results
             for m in sorted(r["models"], key=lambda m: m.id)
@@ -98,6 +102,12 @@ async def list_models(request: Request, refresh: bool = False) -> dict:
     }
     cache.update(at=time.monotonic(), data=data)
     return data
+
+
+@router.get("/usage")
+async def usage(request: Request, days: int = Query(30, ge=1, le=366)) -> dict:
+    """Tokens, cost and budget status: today, this month, per model and per day."""
+    return await request.app.state.usage.summary(days)
 
 
 # ---------------------------------------------------------------------- conversations
@@ -159,7 +169,8 @@ async def export_conversation(
 async def send_message(request: Request, conversation_id: str, body: SendMessage) -> StreamingResponse:
     """Add a user message (or edit one) and stream the answer as Server-Sent Events.
 
-    Events: start, delta {text}, notice {text}, done {message}, title {title}, error {message}.
+    Events: start, model {model, fallback_reason}, delta {text}, notice {text}, done {message},
+    title {title}, error {message}.
     """
     events = await chat_service(request).start_turn(
         conversation_id, content=body.content, edit_message_id=body.edit_message_id, options=body.options()

@@ -68,8 +68,8 @@ This README has two halves:
 |---|---|---|
 | 1 | Core plugin system, 3 model providers, terminal chat (`vachi chat`) | ✅ Done |
 | 2 | Web API with Postgres, OpenAI-compatible API, React chat UI, Docker Compose + Nginx | ✅ Done |
-| 3 | More providers, automatic fallback, usage and cost tracking | Next |
-| 4 | Data sources and RAG with citations | Planned |
+| 3 | Routing: retries, automatic fallback to backup models, timeouts; usage, cost and budgets; model capabilities; provider contract tests | ✅ Done |
+| 4 | Data sources and RAG with citations | Next |
 | 5 | Tools, agents, MCP | Planned |
 | 6 | Assistants, memory, users and permissions | Planned |
 | 7 | Evaluation and safety | Planned |
@@ -81,6 +81,12 @@ and a copy button; chat history with search, rename, delete and export (Markdown
 edit an earlier message; regenerate an answer; stop mid-answer (the partial answer is kept);
 switch model mid-conversation; automatic chat titles; temperature and length settings;
 light/dark theme; phone layout; English, Hindi and Hinglish.
+
+**Reliability and cost (Phase 3):** if a model fails, Vachi retries temporary errors with
+growing waits, then switches to your backup models and tells you which model answered;
+every call's tokens and cost are recorded; daily/monthly budgets skip paid models when
+used up; the model picker shows each model's context size, capabilities and price; a
+Usage page shows spend per model and per day.
 
 ## 2. Quick start with Docker
 
@@ -177,14 +183,17 @@ flowchart LR
     Nginx["Nginx<br/>static UI, proxy,<br/>rate limit"] -->|/api, /v1| API
     subgraph API["Vachi API (FastAPI)"]
         Routes["routes_chat /api<br/>routes_openai /v1"] --> Service["ChatService<br/>save, stream, stop,<br/>edit, regenerate, titles"]
-        Service --> Registry["ProviderRegistry"]
-        Routes --> Registry
+        Service --> Router["Router<br/>retries, fallbacks,<br/>timeouts, budgets"]
+        Routes --> Router
+        Router --> Usage["UsageStore<br/>tokens, cost"]
+        Router --> Registry["ProviderRegistry"]
     end
     Service --> DB[("Postgres")]
+    Usage --> DB
     Registry -->|type: ollama| Ollama["Ollama<br/>local models"]
     Registry -->|type: anthropic| Anthropic["Anthropic API<br/>Claude"]
     Registry -->|type: openai| OpenAI["OpenAI or any<br/>compatible server"]
-    CLI["vachi CLI"] --> Registry
+    CLI["vachi CLI"] --> Router
 ```
 
 ### Folder layout
@@ -204,21 +213,28 @@ Vachimodel/
       core/interfaces.py      ModelProvider: the interface every provider plugin implements
       core/config.py          loads vachi.yaml; fills ${VAR} and ${VAR:-default} from env/.env
       core/registry.py        finds provider plugins via Python entry points; builds them from config
-      core/errors.py          readable errors: bad key, server down, model missing, rate limit
+      core/errors.py          readable errors: bad key, server down, model missing, rate limit, budget
+      core/pricing.py         prices per model (from config) and cost calculation
       providers/              ollama.py, anthropic.py, openai_compat.py
-      db/models.py            tables: conversations, messages
+      db/models.py            tables: conversations, messages, usage_events
       db/session.py           database engine (Postgres in Docker, SQLite by default)
       chat/service.py         conversation logic, generation tasks, stop/edit/regenerate, titles
+      chat/router.py          picks the model: retries with backoff, fallbacks, timeouts, budget checks
+      chat/usage.py           records every model call; cost totals; budget checks; usage summary
       api/app.py              FastAPI app, health/ready checks, error → HTTP status mapping
       api/routes_chat.py      /api routes for the UI (Server-Sent Events streaming)
       api/routes_openai.py    /v1 OpenAI-compatible routes
       cli.py                  `vachi` command: chat, ask, models, serve
-    tests/                    51 tests; all network calls mocked, no API keys or money needed
+    tests/                    95 tests; all network calls mocked, no API keys or money needed
+      test_provider_contract.py   the same checks run against every provider
   frontend/                   React + TypeScript + Vite
     src/api.ts                typed client for /api
     src/sse.ts                streaming (Server-Sent Events) parser, with tests
     src/App.tsx               app state: chats, streaming, edit, regenerate, stop
-    src/components/           Sidebar, Header (model picker, settings, theme), Messages, Composer, Markdown
+    src/components/           Sidebar, Header (model picker, settings, theme), Messages, Composer, Markdown,
+                              UsagePanel (spend vs budget, per model, per day)
+    src/format.ts             money, price and token formatting, with tests
+  docs/WRITING_A_PROVIDER.md  how to add a provider, and the rules it must follow
     src/index.css             light/dark theme tokens, phone layout, code highlighting colours
 ```
 
@@ -236,6 +252,12 @@ Vachimodel/
 | **Errors mapped to status codes** in one table (`api/app.py`) | Consistent API behaviour: 400 bad request, 404 not found, 409 busy, 429 rate limited, 502/503 provider problems. |
 | **Postgres in Docker, SQLite for development and tests** | Same SQLAlchemy code; tests run in under a second with no database server. |
 | **Nginx serves the built UI and proxies the API** on one port | One origin means no CORS setup; Nginx adds rate limiting, security headers and caching of static files. |
+| **One router for every caller** (UI chats, titles, `/v1`, CLI) | Retries, fallbacks, timeouts, budgets and usage tracking behave the same everywhere. |
+| **Retry only temporary errors; fall back on everything else** | A bad key won't fix itself by retrying, but a busy server might. Waits double each time (exponential backoff) so an overloaded server isn't hammered. |
+| **Never switch models mid-answer** | Once a model has started answering, a failure is reported instead of mixing two models' answers. |
+| **Prices live in config, not code** | Provider prices change; a config edit keeps costs right. Unknown prices are flagged instead of guessed. |
+| **Budgets block paid models only** | When money runs out, free local backups still answer. |
+| **Contract tests shared by all providers** | A new provider proves it streams, reports usage and maps errors exactly like the others. |
 | **Ollama behind a Compose profile** | On Linux servers it runs in Docker; on a Mac you can switch to the faster native app with one line in `.env`. |
 
 ## 6. What happens when you send a message
@@ -277,6 +299,37 @@ sequenceDiagram
 - **Errors:** sent as `event: error`. The question stays saved, so "Retry" can regenerate.
   A partial answer from a failed stream is kept and marked `incomplete`.
 
+### When a model fails: routing and fallback
+
+Every answer goes through the **router** (`chat/router.py`). With `models.fallback:
+[local/llama3.2, anthropic/claude-haiku-5-5]` and a request for `anthropic/claude-opus-5-5`:
+
+```mermaid
+flowchart TD
+    Start([Request for model A]) --> Next{Next model in<br/>A, then the fallbacks}
+    Next -->|none left| Fail([Error listing every attempt])
+    Next --> Build{Provider ready?<br/>e.g. API key set}
+    Build -->|no| Next
+    Build --> Budget{Paid model and<br/>budget used up?}
+    Budget -->|yes| Next
+    Budget -->|no| Call[Start answer; wait for first piece<br/>up to first_token_timeout]
+    Call -->|first piece arrives| Commit([Committed: send 'model' event,<br/>stream the rest, record usage])
+    Call -->|temporary error:<br/>down, 429, 5xx, timeout| Retry{Retries left?}
+    Retry -->|yes| Wait[Wait backoff, then 2x, 4x...] --> Call
+    Retry -->|no| Next
+    Call -->|permanent error:<br/>bad key, unknown model| Next
+```
+
+- The `model` event and the saved message name the model that **actually** answered; the UI
+  shows a notice explaining why the requested one didn't. The conversation keeps your chosen
+  model for next time.
+- Once a model has started answering it's committed. A failure after that is reported as an
+  error rather than switching models mid-answer.
+- If every model fails, the error lists each attempt; its HTTP status is the requested model's
+  (e.g. 404 if it doesn't exist).
+- Every call (answers, titles, `/v1` requests, failures) is saved in `usage_events` with
+  tokens, cost, time to first token, and which model it stood in for.
+
 ## 7. API reference
 
 In development (`make serve`), FastAPI's interactive docs are at **http://127.0.0.1:8000/docs**.
@@ -287,7 +340,8 @@ In development (`make serve`), FastAPI's interactive docs are at **http://127.0.
 |---|---|---|
 | GET | `/api/health` | Liveness: the process is up |
 | GET | `/api/ready` | Readiness: the database answers (503 if not) |
-| GET | `/api/models?refresh=true` | Models from every provider, plus which providers are down. Cached 60 s |
+| GET | `/api/models?refresh=true` | Models from every provider with context size, capabilities and price; which providers are down; the fallback list. Cached 60 s |
+| GET | `/api/usage?days=30` | Spend today and this month vs budget; per-model calls, tokens, cost, errors, fallback use, average time to first token; per-day totals |
 | GET | `/api/conversations?q=text` | List chats, newest first; `q` searches titles and message text |
 | POST | `/api/conversations` | Create a chat `{model?, title?}` |
 | GET | `/api/conversations/{id}` | A chat with all its messages |
@@ -302,16 +356,17 @@ In development (`make serve`), FastAPI's interactive docs are at **http://127.0.
 
 | Event | Data | Meaning |
 |---|---|---|
-| `start` | `{user_message, model}` | The saved user message (null for regenerate) and the model answering |
+| `start` | `{user_message, model}` | The saved user message (null for regenerate) and the model requested |
+| `model` | `{model, fallback_reason}` | The model actually answering; `fallback_reason` explains a fallback (null otherwise) |
 | `delta` | `{text}` | The next piece of the answer |
 | `notice` | `{text}` | Information that isn't part of the answer (cut off, fallback model used, declined) |
 | `done` | `{message}` | The saved assistant message, with token counts and `stop_reason` |
 | `title` | `{title}` | The new chat title (first exchange only) |
 | `error` | `{message}` | What went wrong |
 
-**Status codes:** 400 invalid request or unknown provider · 404 chat/message/model not found ·
-409 already answering or nothing to regenerate · 422 invalid body · 429 rate limited ·
-502 provider error · 503 provider unreachable.
+**Status codes:** 400 invalid request or unknown provider · 402 budget used up · 404
+chat/message/model not found · 409 already answering or nothing to regenerate · 422 invalid
+body · 429 rate limited · 502 provider error · 503 provider unreachable.
 
 ### OpenAI-compatible routes (`/v1`)
 
@@ -320,7 +375,9 @@ In development (`make serve`), FastAPI's interactive docs are at **http://127.0.
 | GET | `/v1/models` | Every available model as `provider/model` |
 | POST | `/v1/chat/completions` | `model, messages, stream, stream_options.include_usage, temperature, max_tokens / max_completion_tokens`. `system` and `developer` messages become the system prompt. Text content only for now (images and tools come in later phases) |
 
-Errors use OpenAI's format: `{"error": {"message", "type", "code"}}`.
+Errors use OpenAI's format: `{"error": {"message", "type", "code"}}`. Requests go through the
+router, so fallbacks, budgets and usage tracking apply, and the response's `model` field is the
+model that actually answered.
 
 ## 8. Configuration reference
 
@@ -343,17 +400,39 @@ providers:
 
 models:
   default: local/llama3.2
+  fallback: [local/llama3.2, anthropic/claude-haiku-5-5]   # tried in order when a model fails
+
+routing:
+  retries: 1                        # extra tries of the same model for temporary errors
+  backoff_seconds: 1                # wait before a retry; doubles each time
+  first_token_timeout_seconds: 120  # move on if a model doesn't start answering
+  idle_timeout_seconds: 120         # give up if an answer stalls mid-way
+
+pricing:                            # US$ per 1M tokens; "provider/model" patterns, first match wins
+  "local/*": {input: 0, output: 0}
+  "anthropic/claude-opus-5-5": {input: 4.00, output: 20.00}
+
+budget:                             # when used up, paid models are skipped; free fallbacks still work
+  daily_usd: 2
+  monthly_usd: 20
 
 system_prompt: >
   You are Vachi, a friendly, honest and concise assistant. ...
 ```
+
+- **Costs** are computed from the token counts each provider reports and the `pricing` table.
+  A model with no matching price still works; its calls are counted but not costed, and the
+  Usage page lists it so you can add a price. Budgets can't limit unpriced models.
+- **Budgets** are checked before each call to a paid model, against spending since midnight UTC
+  (daily) and the 1st of the month (monthly). One call already in progress can take spending
+  slightly past the limit.
 
 - `${VAR}` must be set when that provider is used; `${VAR:-default}` falls back to `default`.
 - Values come from the real environment first, then from `.env` next to `vachi.yaml`.
 - Per-provider settings:
   - **ollama:** `base_url`, `timeout_seconds` (default 300)
   - **anthropic:** `api_key`, `base_url`, `default_max_tokens` (64000), `effort`, `server_fallbacks` (true). Temperature is never sent, because current Claude models reject it.
-  - **openai:** `api_key` (optional for local servers), `base_url`
+  - **openai** (alias **openai_compatible**): `api_key` (optional for local servers), `base_url`
 
 Environment variables (`.env`): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `POSTGRES_PASSWORD`,
 `VACHI_PORT` (8100), `COMPOSE_PROFILES` (`ollama`), `OLLAMA_MODEL` (`llama3.2`),
@@ -391,16 +470,25 @@ Environment variables (`.env`): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `POSTGRES
    ```
 3. Add it to `vachi.yaml` with `type: myprovider`, then `cd backend && uv sync`.
 
+The full guide, with a complete working example and the rules every provider must follow
+(checked by the shared contract tests), is in [docs/WRITING_A_PROVIDER.md](docs/WRITING_A_PROVIDER.md).
+
 ## 10. Testing and code quality
 
 ```bash
-make test    # 51 backend tests (pytest) + 4 frontend tests (vitest)
+make test    # 95 backend tests (pytest) + 7 frontend tests (vitest)
 make lint    # ruff (Python), TypeScript type-check, oxlint
 make fmt     # auto-format Python
 ```
 
 - Provider tests use the **real** Anthropic and OpenAI SDKs with a fake network layer, so they
   check our code against the SDKs' actual parsing, for free.
+- **Contract tests** (`test_provider_contract.py`) run the same 8 checks against every provider:
+  streaming order, exactly one `done` with token usage, HTTP 401/404/429/500/400 and connection
+  failures mapped to the right error types (and retryable or not), and stopping early cleanly.
+- **Router tests** cover fallbacks, retries with exponential backoff, permanent vs temporary
+  errors, missing API keys, first-token timeouts, failures mid-answer, budgets (daily, monthly,
+  free fallback still working) and cost calculation.
 - API tests use a fake provider and a temporary SQLite database. They cover streaming, history,
   edit, regenerate, stop (partial answer saved), errors, search, export, and the `/v1` API driven
   by the official `openai` Python package.
@@ -415,6 +503,9 @@ make fmt     # auto-format Python
 | Model list shows "provider unavailable" | Hover the warning in the header to see why; click Settings → Refresh models. |
 | Answers are slow on a Mac | Use native Ollama ([see above](#faster-local-models-on-a-mac)) or a smaller model. |
 | Port 8100 is in use | Set `VACHI_PORT=8200` in `.env`. |
+| "Daily budget ... is used up" (HTTP 402) | Raise `budget` in `vachi.yaml`, wait for the next day/month, or add a free model to `models.fallback`. |
+| Answers come from a different model | A fallback happened; the notice under the answer says why. Check the Usage page's Errors column. |
+| Usage page says "no price set" | Add that model under `pricing:` in `vachi.yaml`. |
 | Start over with an empty database | `docker compose down -v` (deletes chats **and** downloaded models). |
 
 ---
@@ -952,5 +1043,10 @@ freedom to combine any model with your own data and tools.
 > streaming (`proxy_buffering off`), rate limiting and security headers, with health checks,
 > resource limits and non-root containers. Secrets only come from environment variables, and all
 > provider tests run against the real SDKs with a mocked network, so CI needs no keys.
-> Next: automatic fallback between providers, RAG with citations, tools/MCP, evaluation, and
-> fine-tuning my own model with LoRA as just another provider.
+> A router sits in front of every model call: it retries temporary failures with exponential
+> backoff, falls back to backup models (telling the user which model answered), enforces
+> first-token and stall timeouts, and skips paid models once a daily or monthly budget is used
+> up, while free local models keep working. Every call's tokens, cost and latency are recorded
+> for a usage dashboard. All providers pass one shared contract test suite.
+> Next: RAG with citations, tools/MCP, evaluation, and fine-tuning my own model with LoRA as
+> just another provider.

@@ -35,6 +35,10 @@ def fake_ollama(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/tags":
             return httpx.Response(200, json={"models": [{"name": "llama3.2:latest"}]})
+        if request.url.path == "/api/show":
+            return httpx.Response(
+                200, json={"capabilities": ["completion", "tools"], "model_info": {"llama.context_length": 131072}}
+            )
         body = json.loads(request.content)
         requests.append(body)
         reply = f"echo: {body['messages'][-1]['content']}"
@@ -92,5 +96,5 @@ def test_chat_bad_model_command_keeps_old_model(config_path, fake_ollama, monkey
 def test_models_reports_unavailable_provider_and_continues(config_path, fake_ollama, capsys):
     assert cli.main(["--config", config_path, "models"]) == 1  # claude has no key
     out, err = capsys.readouterr()
-    assert "local/llama3.2:latest" in out
+    assert "local/llama3.2:latest  [131,072 token context]" in out
     assert "claude: unavailable" in err

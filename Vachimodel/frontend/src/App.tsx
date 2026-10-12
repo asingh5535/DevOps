@@ -139,6 +139,9 @@ export default function App() {
                 setMessages((ms) => ms.map((m) => (m.id < 0 && m.role === 'user' ? real : m)))
               }
               break
+            case 'model': // the model actually answering (differs from the request after a fallback)
+              updateStream((s) => ({ ...s, model: event.model }))
+              break
             case 'delta':
               updateStream((s) => ({ ...s, text: s.text + event.text }))
               break

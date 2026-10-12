@@ -35,11 +35,38 @@ class ProviderEntry(BaseModel):
 
 class ModelsSection(BaseModel):
     default: str | None = None
+    # Tried in order when the requested model fails, e.g. [local/llama3.2, anthropic/claude-haiku-5-5]
+    fallback: list[str] = Field(default_factory=list)
+
+
+class RoutingConfig(BaseModel):
+    retries: int = Field(1, ge=0, le=5)  # extra tries of the same model for temporary errors
+    backoff_seconds: float = Field(1.0, ge=0)  # wait before a retry; doubles each time
+    first_token_timeout_seconds: float = Field(120, gt=0)  # give up on a model that doesn't start answering
+    idle_timeout_seconds: float = Field(120, gt=0)  # give up if an answer stalls this long mid-way
+
+
+class Price(BaseModel):
+    """US dollars per 1 million tokens."""
+
+    input: float = Field(ge=0)
+    output: float = Field(ge=0)
+
+
+class BudgetConfig(BaseModel):
+    """Spending limits in US dollars. When reached, paid models are skipped (fallbacks still work)."""
+
+    daily_usd: float | None = Field(None, gt=0)
+    monthly_usd: float | None = Field(None, gt=0)
 
 
 class VachiConfig(BaseModel):
     providers: list[ProviderEntry] = Field(default_factory=list)
     models: ModelsSection = Field(default_factory=ModelsSection)
+    routing: RoutingConfig = Field(default_factory=RoutingConfig)
+    # "provider/model" patterns (* wildcards allowed) -> price. The first matching pattern wins.
+    pricing: dict[str, Price] = Field(default_factory=dict)
+    budget: BudgetConfig = Field(default_factory=BudgetConfig)
     system_prompt: str | None = None
     path: Path | None = None  # where the config was loaded from
 

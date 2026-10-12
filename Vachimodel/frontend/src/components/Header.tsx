@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import type { GenerationSettings, ModelsResponse } from '../api'
+import type { GenerationSettings, ModelEntry, ModelsResponse } from '../api'
+import { formatPrice, formatTokens } from '../format'
+import { UsagePanel } from './UsagePanel'
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -22,12 +24,14 @@ const NEXT_THEME: Record<Theme, Theme> = { system: 'light', light: 'dark', dark:
 export function Header(props: Props) {
   const { models, model, settings } = props
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [usageOpen, setUsageOpen] = useState(false)
 
-  const byProvider = new Map<string, { id: string; name: string }[]>()
+  const byProvider = new Map<string, ModelEntry[]>()
   for (const m of models?.models ?? []) {
-    byProvider.set(m.provider, [...(byProvider.get(m.provider) ?? []), { id: m.id, name: m.name }])
+    byProvider.set(m.provider, [...(byProvider.get(m.provider) ?? []), m])
   }
-  const known = models?.models.some((m) => m.id === model)
+  const selected = models?.models.find((m) => m.id === model)
+  const known = selected !== undefined
   const down = models?.providers.filter((p) => !p.ok) ?? []
 
   return (
@@ -51,12 +55,15 @@ export function Header(props: Props) {
               {list.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
+                  {m.price ? ` · ${m.price.input === 0 && m.price.output === 0 ? 'free' : `$${m.price.input}/$${m.price.output}`}` : ''}
                 </option>
               ))}
             </optgroup>
           ))}
         </select>
       </label>
+
+      {selected && <ModelDetails model={selected} />}
 
       {down.length > 0 && (
         <span className="provider-warning" title={down.map((p) => `${p.id}: ${p.error}`).join('\n')}>
@@ -123,6 +130,9 @@ export function Header(props: Props) {
             </div>
           )}
         </div>
+        <button type="button" className="button ghost" onClick={() => setUsageOpen(true)}>
+          Usage
+        </button>
         <button
           type="button"
           className="button ghost"
@@ -132,6 +142,21 @@ export function Header(props: Props) {
           {THEME_LABELS[props.theme]}
         </button>
       </div>
+      {usageOpen && <UsagePanel fallback={models?.fallback ?? []} onClose={() => setUsageOpen(false)} />}
     </header>
+  )
+}
+
+function ModelDetails({ model }: { model: ModelEntry }) {
+  const parts = [
+    model.context_window ? `${formatTokens(model.context_window)} context` : null,
+    ...model.capabilities,
+    formatPrice(model.price),
+  ].filter(Boolean)
+  if (parts.length === 0) return null
+  return (
+    <span className="model-details" title="What this model can do, and its price">
+      {parts.join(' · ')}
+    </span>
   )
 }

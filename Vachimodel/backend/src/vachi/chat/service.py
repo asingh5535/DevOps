@@ -18,6 +18,7 @@ from typing import Any
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from vachi.chat.router import Router
 from vachi.core.config import VachiConfig
 from vachi.core.errors import VachiError
 from vachi.core.messages import ChatRequest, Message
@@ -86,9 +87,12 @@ def simple_title(text: str) -> str:
 
 
 class ChatService:
-    def __init__(self, config: VachiConfig, registry: ProviderRegistry, sessionmaker: async_sessionmaker):
+    def __init__(
+        self, config: VachiConfig, registry: ProviderRegistry, sessionmaker: async_sessionmaker, router: Router
+    ):
         self.config = config
         self.registry = registry
+        self.router = router
         self.sessionmaker = sessionmaker
         self._running: dict[str, asyncio.Task] = {}
 
@@ -106,7 +110,7 @@ class ChatService:
 
     async def create_conversation(self, model: str | None = None, title: str | None = None) -> dict[str, Any]:
         if model:
-            self.registry.resolve(model)  # validate early
+            self.registry.parse(model)  # validate early
         async with self.sessionmaker() as db:
             conversation = Conversation(model=model or self.config.models.default, title=title or DEFAULT_TITLE)
             db.add(conversation)
@@ -121,7 +125,7 @@ class ChatService:
 
     async def update_conversation(self, conversation_id: str, *, title: str | None, model: str | None) -> dict:
         if model:
-            self.registry.resolve(model)
+            self.registry.parse(model)
         async with self.sessionmaker() as db:
             conversation = await self._load(db, conversation_id)
             if title is not None:
@@ -168,7 +172,7 @@ class ChatService:
         async with self.sessionmaker() as db:
             conversation = await self._load(db, conversation_id)
             model_ref = options.model or conversation.model or self.config.models.default
-            provider, model_name = self.registry.resolve(model_ref)
+            self.registry.parse(model_ref)
             messages = await self._messages(db, conversation_id)
 
             if regenerate:
@@ -204,7 +208,7 @@ class ChatService:
             first_question = history[0].content
 
         request = ChatRequest(
-            model=model_name,
+            model="",  # chosen by the router
             messages=history,
             system=self.config.system_prompt,
             temperature=options.temperature,
@@ -215,7 +219,7 @@ class ChatService:
             ("start", {"user_message": message_to_dict(user_message) if user_message else None, "model": model_ref})
         )
         task = asyncio.create_task(
-            self._generate(conversation_id, provider, request, model_ref, queue, needs_title, first_question)
+            self._generate(conversation_id, request, model_ref, queue, needs_title, first_question)
         )
         self._running[conversation_id] = task
         task.add_done_callback(lambda t: self._forget(conversation_id, t))
@@ -247,21 +251,27 @@ class ChatService:
             if not task.done():  # the client went away: stop generating
                 task.cancel()
 
-    async def _generate(self, conversation_id, provider, request, model_ref, queue, needs_title, first_question):
+    async def _generate(self, conversation_id, request, model_ref, queue, needs_title, first_question):
         parts: list[str] = []
         usage = None
         stop_reason = None
+        answered_by = model_ref  # changes if the router falls back to another model
         try:
-            async for chunk in provider.chat(request):
+            async for chunk in self.router.stream(model_ref, request, source="chat", conversation_id=conversation_id):
                 if chunk.type == "text":
                     parts.append(chunk.text)
                     queue.put_nowait(("delta", {"text": chunk.text}))
+                elif chunk.type == "route":
+                    answered_by = chunk.model
+                    queue.put_nowait(("model", {"model": answered_by, "fallback_reason": chunk.text or None}))
+                    if chunk.text:
+                        queue.put_nowait(("notice", {"text": f"Answered by {answered_by}: {chunk.text}"}))
                 elif chunk.type == "notice":
                     queue.put_nowait(("notice", {"text": chunk.text}))
                 elif chunk.type == "done":
                     usage, stop_reason = chunk.usage, chunk.stop_reason
         except asyncio.CancelledError:
-            saved = await asyncio.shield(self._save_answer(conversation_id, parts, model_ref, "stopped", None))
+            saved = await asyncio.shield(self._save_answer(conversation_id, parts, answered_by, "stopped", None))
             queue.put_nowait(("done", {"message": saved}))
             queue.put_nowait(None)
             raise
@@ -269,15 +279,15 @@ class ChatService:
             if not isinstance(exc, VachiError):
                 log.exception("Unexpected error while answering")
             if parts:
-                await self._save_answer(conversation_id, parts, model_ref, "error", None)
+                await self._save_answer(conversation_id, parts, answered_by, "error", None)
             queue.put_nowait(("error", {"message": str(exc) if isinstance(exc, VachiError) else "Unexpected error."}))
             queue.put_nowait(None)
             return
 
-        saved = await self._save_answer(conversation_id, parts, model_ref, stop_reason, usage)
+        saved = await self._save_answer(conversation_id, parts, answered_by, stop_reason, usage)
         queue.put_nowait(("done", {"message": saved}))
         if needs_title:
-            title = await self._make_title(conversation_id, provider, request.model, first_question)
+            title = await self._make_title(conversation_id, answered_by, first_question)
             queue.put_nowait(("title", {"title": title}))
         queue.put_nowait(None)
 
@@ -301,18 +311,21 @@ class ChatService:
             await db.commit()
             return message_to_dict(message)
 
-    async def _make_title(self, conversation_id, provider, model_name, first_question) -> str:
+    async def _make_title(self, conversation_id, model_ref, first_question) -> str:
         title = simple_title(first_question)
         try:
             request = ChatRequest(
-                model=model_name,
+                model="",
                 system=TITLE_PROMPT,
                 messages=[Message(role="user", content=first_question[:2000])],
                 max_tokens=1000,
             )
 
             async def generate() -> str:
-                return "".join([c.text async for c in provider.chat(request) if c.type == "text"])
+                chunks = self.router.stream(
+                    model_ref, request, source="title", conversation_id=conversation_id, fallback=False
+                )
+                return "".join([c.text async for c in chunks if c.type == "text"])
 
             generated = (await asyncio.wait_for(generate(), TITLE_TIMEOUT_SECONDS)).strip().strip("\"'.").strip()
             if generated:

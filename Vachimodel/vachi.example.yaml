@@ -23,6 +23,30 @@ providers:
 
 models:
   default: local/llama3.2
+  # If the chosen model fails (server down, rate limited, budget used up, missing key),
+  # these are tried in order. The UI shows which model actually answered.
+  fallback: []
+  # fallback: [local/llama3.2, anthropic/claude-haiku-5-5]
+
+routing:
+  retries: 1                        # extra tries of the same model for temporary errors
+  backoff_seconds: 1                # wait before retrying; doubles each time
+  first_token_timeout_seconds: 120  # move on if a model doesn't start answering in time
+  idle_timeout_seconds: 120         # give up if an answer stalls mid-way
+
+# US dollars per 1 million tokens, matched against "provider/model" (* = anything).
+# The first matching line wins. Check your provider's pricing page; prices change.
+pricing:
+  "local/*": {input: 0, output: 0}                            # your own machine: free
+  "anthropic/claude-opus-5-5": {input: 4.00, output: 20.00}
+  "anthropic/claude-sonnet-5-5": {input: 2.00, output: 10.00}
+  "anthropic/claude-haiku-5-5": {input: 0.10, output: 0.50}   # prompts up to 100K tokens
+  # "openai/<model>": {input: ..., output: ...}
+
+# Spending limits. When reached, paid models are skipped and free fallbacks still work.
+budget:
+  daily_usd: 2
+  monthly_usd: 20
 
 system_prompt: >
   You are Vachi, a friendly, honest and concise assistant.

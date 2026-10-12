@@ -13,6 +13,7 @@ import sys
 from collections.abc import Coroutine
 from typing import Any
 
+from vachi.chat.router import Router
 from vachi.core.config import VachiConfig, load_config
 from vachi.core.errors import VachiError
 from vachi.core.messages import ChatRequest, Message, Usage
@@ -100,18 +101,21 @@ async def stream_answer(
     config: VachiConfig,
     parts: list[str],
 ) -> Usage | None:
-    """Print the answer as it streams. Appends text to `parts` so a stopped answer can be kept."""
-    provider, model_name = registry.resolve(model_ref)
+    """Print the answer as it streams. Appends text to `parts` so a stopped answer can be kept.
+
+    Goes through the router, so `models.fallback` and retries from vachi.yaml apply."""
     request = ChatRequest(
-        model=model_name,
+        model="",
         messages=history,
         system=args.system if args.system is not None else config.system_prompt,
         temperature=args.temperature,
         max_tokens=args.max_tokens,
     )
     usage = None
-    async for chunk in provider.chat(request):
-        if chunk.type == "text":
+    async for chunk in Router(config, registry).stream(model_ref, request):
+        if chunk.type == "route" and chunk.text:
+            print(f"[answered by {chunk.model}: {chunk.text}]", file=sys.stderr, flush=True)
+        elif chunk.type == "text":
             parts.append(chunk.text)
             print(chunk.text, end="", flush=True)
         elif chunk.type == "notice":
@@ -140,7 +144,7 @@ def cmd_ask(args: argparse.Namespace, config: VachiConfig, registry: ProviderReg
 
 def cmd_chat(args: argparse.Namespace, config: VachiConfig, registry: ProviderRegistry) -> int:
     model_ref = args.model or config.models.default
-    registry.resolve(model_ref)  # fail fast on a bad model name or missing API key
+    registry.parse(model_ref)  # fail fast on a malformed model name or unknown provider
     session = Session(registry)
     history: list[Message] = []
     print(f"Vachi chat with {model_ref}. Type /help for commands.\n")
@@ -168,7 +172,7 @@ def cmd_chat(args: argparse.Namespace, config: VachiConfig, registry: ProviderRe
                     print("[new conversation]")
                 elif command == "/model":
                     try:
-                        registry.resolve(rest.strip())
+                        registry.parse(rest.strip())
                         model_ref = rest.strip()
                         print(f"[now using {model_ref}]")
                     except VachiError as exc:

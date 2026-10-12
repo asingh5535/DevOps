@@ -43,12 +43,9 @@ class ProviderRegistry:
         self._instances[provider_id] = provider
         return provider
 
-    def resolve(self, model_ref: str | None) -> tuple[ModelProvider, str]:
-        """Turn "provider_id/model_name" into (provider, model_name).
-
-        Falls back to `models.default` from config when model_ref is empty. Only the
-        first "/" separates the provider, so model names may contain "/" themselves.
-        """
+    def parse(self, model_ref: str | None) -> tuple[str, str]:
+        """Check that "provider_id/model_name" is well formed and names a configured
+        provider, without building the provider (so a missing API key isn't an error yet)."""
         model_ref = model_ref or self.config.models.default
         if not model_ref:
             raise ConfigError("No model given. Pass --model provider/model or set models.default in vachi.yaml.")
@@ -58,6 +55,22 @@ class ProviderRegistry:
                 f"Model '{model_ref}' must look like provider/model, for example "
                 f"local/llama3.2. Configured providers: {', '.join(self._entries) or 'none'}."
             )
+        if provider_id not in self._entries:
+            known = ", ".join(self._entries) or "none"
+            raise ConfigError(f"Unknown provider '{provider_id}'. Configured providers: {known}.")
+        return provider_id, model_name
+
+    def provider_type(self, provider_id: str) -> str | None:
+        entry = self._entries.get(provider_id)
+        return entry.type if entry else None
+
+    def resolve(self, model_ref: str | None) -> tuple[ModelProvider, str]:
+        """Turn "provider_id/model_name" into (provider, model_name).
+
+        Falls back to `models.default` from config when model_ref is empty. Only the
+        first "/" separates the provider, so model names may contain "/" themselves.
+        """
+        provider_id, model_name = self.parse(model_ref)
         return self.get(provider_id), model_name
 
     async def aclose(self) -> None:
