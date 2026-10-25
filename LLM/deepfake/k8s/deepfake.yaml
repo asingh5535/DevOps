@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm
+---
+# Model weights (~1-2 GB, downloaded on first start)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: facefusion-models
+  namespace: llm
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Temp files, jobs and rendered outputs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: facefusion-data
+  namespace: llm
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facefusion
+  namespace: llm
+  labels:
+    app: facefusion
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 1800   # first start downloads ~2 GB of models before the UI listens
+  strategy:
+    type: Recreate   # RWO volumes can't be shared by two pods during a rolling update
+  selector:
+    matchLabels:
+      app: facefusion
+  template:
+    metadata:
+      labels:
+        app: facefusion
+    spec:
+      initContainers:
+        - name: prepare-dirs
+          image: facefusion:3.9.1
+          imagePullPolicy: Never
+          command: ["sh", "-c", "mkdir -p /data/temp /data/jobs /data/output"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      containers:
+        - name: facefusion
+          image: facefusion:3.9.1
+          imagePullPolicy: Never   # image is loaded straight into the kind nodes by deploy.sh
+          ports:
+            - name: http
+              containerPort: 7860
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 6Gi
+          # First start downloads models before the UI comes up; allow up to 20 minutes
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 120
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          volumeMounts:
+            - name: models
+              mountPath: /app/.assets
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: facefusion-models
+        - name: data
+          persistentVolumeClaim:
+            claimName: facefusion-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: facefusion
+  namespace: llm
+spec:
+  selector:
+    app: facefusion
+  ports:
+    - name: http
+      port: 7860
+      targetPort: http

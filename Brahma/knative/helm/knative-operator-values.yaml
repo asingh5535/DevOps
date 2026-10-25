@@ -1,0 +1,24 @@
+# Values for the knative-operator/knative-operator chart
+# (repo: https://knative.github.io/operator, chart version v1.23.0).
+# Confirmed against `helm show values knative-operator/knative-operator --version v1.23.0`.
+#
+# Keeps the Operator itself light — it just reconciles KnativeServing/
+# KnativeEventing CRs, it isn't the thing serving traffic. These are close
+# to the chart defaults; set explicitly here so the intent is visible.
+knative_operator:
+  knative_operator:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 500m
+        memory: 500Mi
+  operator_webhook:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 500m
+        memory: 500Mi
