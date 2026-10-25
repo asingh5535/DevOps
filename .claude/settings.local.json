@@ -45,7 +45,26 @@
       "Bash(ls /c/Users/lenovo/Downloads/brahma/*.md)",
       "Bash(rsync -av --exclude='node_modules' --exclude='dist' --exclude='.git' /c/Users/lenovo/Downloads/brahma/ /c/Users/lenovo/Downloads/abhishekgitclonerepo/DevOps/brahma/)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git checkout *)",
+      "Bash(git revert *)",
+      "Bash(git push *)",
+      "Bash(git stash *)",
+      "Bash(git fetch *)",
+      "Bash(git ls-tree *)",
+      "Bash(git ls-remote *)",
+      "Bash(gh auth *)",
+      "Bash(gh --version)",
+      "PowerShell(gh auth *)",
+      "mcp__github__get_me",
+      "mcp__github__list_repository_collaborators",
+      "Bash(docker info *)",
+      "Bash(kubectl config *)",
+      "Bash(kubectl get *)",
+      "Bash(kind get *)",
+      "Bash(helm version *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(kubectl config get-contexts *)"
     ]
   }
 }
