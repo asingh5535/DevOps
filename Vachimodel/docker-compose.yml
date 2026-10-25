@@ -1,0 +1,87 @@
+# Vachi stack: web (Nginx + UI) -> api (FastAPI) -> postgres, ollama.
+# Usage: make up   (or: docker compose up -d --build)   then open http://localhost:8100
+name: vachi
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "${VACHI_PORT:-8100}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 128m }
+
+  api:
+    build: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      VACHI_DATABASE_URL: postgresql+asyncpg://vachi:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Vachimodel/.env}@postgres:5432/vachi
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+    volumes:
+      - ./vachi.yaml:/config/vachi.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512m }
+
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_DB: vachi
+      POSTGRES_USER: vachi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Vachimodel/.env}
+    volumes:
+      - pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vachi -d vachi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512m }
+
+  # Local models. On a Mac, Docker can't use the GPU, so the Ollama app installed
+  # directly on the Mac is much faster: see README ("Faster local models on a Mac").
+  ollama:
+    image: ollama/ollama:0.35.0
+    profiles: ["ollama"]
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 8g }
+
+  # One-off job: downloads the default local model, then exits.
+  ollama-pull:
+    image: ollama/ollama:0.35.0
+    profiles: ["ollama"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-llama3.2}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  pg_data:
+  ollama_models:

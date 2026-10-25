@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: mysql:8.0
+    container_name: netflix_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-netflix_root}
+      MYSQL_DATABASE:      ${MYSQL_DATABASE:-netflix}
+      MYSQL_USER:          ${MYSQL_USER:-netflix}
+      MYSQL_PASSWORD:      ${MYSQL_PASSWORD:-netflix123}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "${MYSQL_USER:-netflix}",
+             "-p${MYSQL_PASSWORD:-netflix123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    build: ./backend
+    container_name: netflix_backend
+    restart: always
+    environment:
+      DB_HOST:     db
+      DB_USER:     ${MYSQL_USER:-netflix}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-netflix123}
+      DB_NAME:     ${MYSQL_DATABASE:-netflix}
+      SECRET_KEY:  ${SECRET_KEY:-super_secret_jwt_key_change_in_prod}
+    ports:
+      - "5001:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: netflix_frontend
+    restart: always
+    ports:
+      - "8090:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
